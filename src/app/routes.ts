@@ -1,4 +1,4 @@
-import { createBrowserRouter } from "react-router";
+import { createBrowserRouter, redirect } from "react-router";
 import { ProtectedLayout } from "./components/ProtectedLayout";
 import { Dashboard } from "./pages/Dashboard";
 import { CalendarIntegration } from "./pages/CalendarIntegration";
@@ -11,6 +11,8 @@ import { Register } from "./pages/Register";
 import { AdminAccounts } from "./pages/AdminAccounts";
 import { ForgotPassword } from "./pages/ForgotPassword";
 import { RegisterSuccessLoading } from "./pages/RegisterSuccessLoading";
+
+const routerBasename = (import.meta as ImportMeta & { env?: { BASE_URL?: string } }).env?.BASE_URL || "/";
 
 export const router = createBrowserRouter([
   {
@@ -42,4 +44,10 @@ export const router = createBrowserRouter([
       { path: "admin/accounts", Component: AdminAccounts },
     ],
   },
-]);
+  {
+    path: "*",
+    loader: () => redirect("/"),
+  },
+], {
+  basename: routerBasename,
+});
