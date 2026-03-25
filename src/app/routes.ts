@@ -1,4 +1,4 @@
-import { createBrowserRouter, redirect } from "react-router";
+import { createHashRouter, redirect } from "react-router";
 import { ProtectedLayout } from "./components/ProtectedLayout";
 import { Dashboard } from "./pages/Dashboard";
 import { CalendarIntegration } from "./pages/CalendarIntegration";
@@ -12,9 +12,7 @@ import { AdminAccounts } from "./pages/AdminAccounts";
 import { ForgotPassword } from "./pages/ForgotPassword";
 import { RegisterSuccessLoading } from "./pages/RegisterSuccessLoading";
 
-const routerBasename = (import.meta as ImportMeta & { env?: { BASE_URL?: string } }).env?.BASE_URL || "/";
-
-export const router = createBrowserRouter([
+export const router = createHashRouter([
   {
     path: "/login",
     Component: Login,
@@ -48,6 +46,4 @@ export const router = createBrowserRouter([
     path: "*",
     loader: () => redirect("/"),
   },
-], {
-  basename: routerBasename,
-});
+]);
