@@ -83,7 +83,8 @@ export const IntegrationContext = createContext<IntegrationContextType | undefin
 
 const STORAGE_KEY_PREFIX = 'syncflow_integrations';
 
-const getStorageKeyForUser = (userId: string) => `${STORAGE_KEY_PREFIX}:${userId}`;
+const getStorageKeyForUser = (user: { id: string; email: string }) =>
+  `${STORAGE_KEY_PREFIX}:${user.id}:${encodeURIComponent(user.email.toLowerCase())}`;
 
 const initialState: IntegrationState = {
   calendars: [
@@ -120,44 +121,60 @@ const initialState: IntegrationState = {
   },
 };
 
+const createInitialState = (): IntegrationState => ({
+  ...initialState,
+  calendars: initialState.calendars.map((calendar) => ({ ...calendar })),
+  tasks: initialState.tasks.map((task) => ({ ...task })),
+  chats: initialState.chats.map((chat) => ({ ...chat })),
+  chatSummarySettings: {
+    ...initialState.chatSummarySettings,
+    selectedChannels: [...initialState.chatSummarySettings.selectedChannels],
+    keywordFilters: [...initialState.chatSummarySettings.keywordFilters],
+  },
+  calendarTaskSync: {
+    ...initialState.calendarTaskSync,
+  },
+});
+
 export function IntegrationProvider({ children }: { children: ReactNode }) {
   const { user, isLoading } = useAuth();
-  const [state, setState] = useState<IntegrationState>(initialState);
+  const [state, setState] = useState<IntegrationState>(createInitialState);
   const [stateOwnerId, setStateOwnerId] = useState<string | null>(null);
 
   useEffect(() => {
     if (isLoading) return;
 
     if (!user) {
-      setState(initialState);
+      setState(createInitialState());
       setStateOwnerId(null);
       return;
     }
 
-    const storageKey = getStorageKeyForUser(user.id);
+    const storageKey = getStorageKeyForUser(user);
     const stored = localStorage.getItem(storageKey);
 
     if (!stored) {
-      setState(initialState);
+      setState(createInitialState());
       setStateOwnerId(user.id);
       return;
     }
 
     try {
       const parsedState = JSON.parse(stored);
+      const baseState = createInitialState();
       // Merge with initialState to ensure new fields have defaults (backward compatibility)
       setState({
-        ...initialState,
+        ...baseState,
         ...parsedState,
-        chatSummarySettings: parsedState.chatSummarySettings || initialState.chatSummarySettings,
+        chatSummarySettings: parsedState.chatSummarySettings || baseState.chatSummarySettings,
         calendarTaskSync: {
-          ...initialState.calendarTaskSync,
+          ...baseState.calendarTaskSync,
           ...(parsedState.calendarTaskSync || {}),
         },
       });
       setStateOwnerId(user.id);
     } catch {
-      setState(initialState);
+      setState(createInitialState());
       setStateOwnerId(user.id);
     }
   }, [user, isLoading]);
@@ -165,7 +182,7 @@ export function IntegrationProvider({ children }: { children: ReactNode }) {
   // Persist per-user state after the user-specific snapshot is loaded.
   useEffect(() => {
     if (isLoading || !user || stateOwnerId !== user.id) return;
-    localStorage.setItem(getStorageKeyForUser(user.id), JSON.stringify(state));
+    localStorage.setItem(getStorageKeyForUser(user), JSON.stringify(state));
   }, [state, user, isLoading, stateOwnerId]);
 
   const connectCalendar = (providerId: string, credentials: any) => {
