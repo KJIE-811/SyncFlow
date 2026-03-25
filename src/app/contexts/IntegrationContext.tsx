@@ -150,11 +150,14 @@ export function IntegrationProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    // Reset immediately on account switch so previous user's connections never leak into view.
+    setState(createInitialState());
+    setStateOwnerId(null);
+
     const storageKey = getStorageKeyForUser(user);
     const stored = localStorage.getItem(storageKey);
 
     if (!stored) {
-      setState(createInitialState());
       setStateOwnerId(user.id);
       return;
     }
@@ -174,10 +177,9 @@ export function IntegrationProvider({ children }: { children: ReactNode }) {
       });
       setStateOwnerId(user.id);
     } catch {
-      setState(createInitialState());
       setStateOwnerId(user.id);
     }
-  }, [user, isLoading]);
+  }, [isLoading, user?.id, user?.email]);
 
   // Persist per-user state after the user-specific snapshot is loaded.
   useEffect(() => {
