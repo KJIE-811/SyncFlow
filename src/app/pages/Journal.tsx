@@ -141,7 +141,7 @@ export function Journal() {
     {
       id: 'export-format',
       action: 'Choose Export Format',
-      instruction: 'Select one output format for the generated report: PDF simulation, Markdown, or plain text.',
+      instruction: 'Select one output format for the generated report: PDF mock preview, Markdown, or plain text.',
       microcopy: 'Pick Markdown for editable docs and text for lightweight sharing.',
       whyItMatters: 'Format controls portability and downstream editing.',
       targetSelector: '[data-onboarding="export-format-group"]',
@@ -296,12 +296,17 @@ export function Journal() {
 
     switch (reportFormat) {
       case 'pdf':
-        // For PDF, we'll generate markdown content (in real app would use PDF library)
-        content = generateMarkdownReport();
-        mimeType = 'text/markdown';
-        fileExtension = 'md';
-        alert('PDF generation is simulated. Downloading as Markdown instead.');
-        break;
+        // Open a deploy-safe static mock PDF hosted from the Vite public directory.
+        const basePath = import.meta.env.BASE_URL.endsWith('/')
+          ? import.meta.env.BASE_URL
+          : `${import.meta.env.BASE_URL}/`;
+        const mockPdfUrl = `${window.location.origin}${basePath}mock-report.pdf`;
+        const pdfWindow = window.open(mockPdfUrl, '_blank', 'noopener,noreferrer');
+
+        if (!pdfWindow) {
+          alert('Unable to open PDF preview. Please allow pop-ups and try again.');
+        }
+        return;
       case 'markdown':
         content = generateMarkdownReport();
         mimeType = 'text/markdown';
@@ -907,7 +912,7 @@ export function Journal() {
                     onChange={() => setReportFormat('pdf')}
                     style={{ accentColor: '#6366F1' }} 
                   />
-                  <span className="text-sm" style={{ color: '#E5E7EB' }}>PDF Document</span>
+                  <span className="text-sm" style={{ color: '#E5E7EB' }}>PDF Preview (mock)</span>
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input 
