@@ -296,15 +296,15 @@ export function Journal() {
 
     switch (reportFormat) {
       case 'pdf':
-        // Open a deploy-safe static mock PDF hosted from the Vite public directory.
+        // Open an in-app preview route that embeds a static mock PDF.
         const basePath = import.meta.env.BASE_URL.endsWith('/')
           ? import.meta.env.BASE_URL
           : `${import.meta.env.BASE_URL}/`;
-        const mockPdfUrl = `${window.location.origin}${basePath}mock-report.pdf`;
-        const pdfWindow = window.open(mockPdfUrl, '_blank', 'noopener,noreferrer');
+        const previewRouteUrl = `${window.location.origin}${basePath}#/report-preview`;
+        const pdfWindow = window.open(previewRouteUrl, '_blank', 'noopener,noreferrer');
 
         if (!pdfWindow) {
-          alert('Unable to open PDF preview. Please allow pop-ups and try again.');
+          window.location.assign(previewRouteUrl);
         }
         return;
       case 'markdown':

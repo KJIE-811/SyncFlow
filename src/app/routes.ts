@@ -11,6 +11,7 @@ import { Register } from "./pages/Register";
 import { AdminAccounts } from "./pages/AdminAccounts";
 import { ForgotPassword } from "./pages/ForgotPassword";
 import { RegisterSuccessLoading } from "./pages/RegisterSuccessLoading";
+import { ReportPreview } from "./pages/ReportPreview";
 
 export const router = createHashRouter([
   {
@@ -38,6 +39,7 @@ export const router = createHashRouter([
       { path: "integration/tasks", Component: TasksIntegration },
       { path: "integration/chat", Component: ChatIntegration },
       { path: "journal", Component: Journal },
+      { path: "report-preview", Component: ReportPreview },
       { path: "settings", Component: Settings },
       { path: "admin/accounts", Component: AdminAccounts },
     ],
