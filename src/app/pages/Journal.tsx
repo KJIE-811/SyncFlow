@@ -296,16 +296,17 @@ export function Journal() {
 
     switch (reportFormat) {
       case 'pdf':
-        // Open an in-app preview route that embeds a static mock PDF.
+        // Download a deploy-safe static sample PDF from the Vite public directory.
         const basePath = import.meta.env.BASE_URL.endsWith('/')
           ? import.meta.env.BASE_URL
           : `${import.meta.env.BASE_URL}/`;
-        const previewRouteUrl = `${window.location.origin}${basePath}#/report-preview`;
-        const pdfWindow = window.open(previewRouteUrl, '_blank', 'noopener,noreferrer');
-
-        if (!pdfWindow) {
-          window.location.assign(previewRouteUrl);
-        }
+        const mockPdfUrl = `${window.location.origin}${basePath}mock-report.pdf`;
+        const pdfLink = document.createElement('a');
+        pdfLink.href = mockPdfUrl;
+        pdfLink.download = `syncflow-report-${dateStr}.pdf`;
+        document.body.appendChild(pdfLink);
+        pdfLink.click();
+        document.body.removeChild(pdfLink);
         return;
       case 'markdown':
         content = generateMarkdownReport();
@@ -912,7 +913,7 @@ export function Journal() {
                     onChange={() => setReportFormat('pdf')}
                     style={{ accentColor: '#6366F1' }} 
                   />
-                  <span className="text-sm" style={{ color: '#E5E7EB' }}>PDF Preview (mock)</span>
+                  <span className="text-sm" style={{ color: '#E5E7EB' }}>PDF Document (.pdf)</span>
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input 
