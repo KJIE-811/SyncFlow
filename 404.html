@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>SyncFlow</title>
+    <script>
+      // GitHub Pages SPA fallback: redirect unknown paths back to index with route in query.
+      (function () {
+        var pathSegmentsToKeep = 1;
+        var locationState = window.location;
+
+        var redirectUrl =
+          locationState.protocol +
+          '//' +
+          locationState.hostname +
+          (locationState.port ? ':' + locationState.port : '') +
+          locationState.pathname
+            .split('/')
+            .slice(0, 1 + pathSegmentsToKeep)
+            .join('/') +
+          '/?/' +
+          locationState.pathname
+            .slice(1)
+            .split('/')
+            .slice(pathSegmentsToKeep)
+            .join('/')
+            .replace(/&/g, '~and~') +
+          (locationState.search
+            ? '&' + locationState.search.slice(1).replace(/&/g, '~and~')
+            : '') +
+          locationState.hash;
+
+        locationState.replace(redirectUrl);
+      })();
+    </script>
+  </head>
+  <body></body>
+</html>
