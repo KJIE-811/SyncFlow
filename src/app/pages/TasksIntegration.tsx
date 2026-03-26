@@ -3,7 +3,9 @@ import { CheckCircle2, RefreshCw, Filter, Trash2, Lock, Calendar as CalendarIcon
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { useIntegrations } from '../contexts/IntegrationContext';
+import { useAuth } from '../contexts/AuthContext';
 import { TaskConnectionModal } from '../components/TaskConnectionModal';
+import { ChatCreatedTask, loadChatCreatedTasks } from '../services/chatSimulatorStorage';
 import { toast } from 'sonner';
 
 const taskProviderInfo = [
@@ -56,6 +58,7 @@ export function TasksIntegration() {
   };
 
   const { state, connectTask, disconnectTask, syncProvider, canConnect, getActiveProvider, updateCalendarTaskSync } = useIntegrations();
+  const { user } = useAuth();
   const [selectedProvider, setSelectedProvider] = useState<string | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(() => !state.tasks.some((task) => task.connected));
   const [hasUserRequestedTutorial, setHasUserRequestedTutorial] = useState(false);
@@ -82,9 +85,14 @@ export function TasksIntegration() {
   const [openedTaskTitle, setOpenedTaskTitle] = useState('');
   const [openedTaskDueDate, setOpenedTaskDueDate] = useState('');
   const [taskOverrides, setTaskOverrides] = useState<Record<string, { title: string; due: string }>>({});
+  const [chatCreatedTasks, setChatCreatedTasks] = useState<ChatCreatedTask[]>([]);
   const [taskSearchKeyword, setTaskSearchKeyword] = useState('');
   const [dueDateSortOrder, setDueDateSortOrder] = useState<'asc' | 'desc'>('asc');
   const tooltipRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    setChatCreatedTasks(loadChatCreatedTasks(user));
+  }, [user?.id, user?.email]);
 
   const baseOnboardingSteps: OnboardingStep[] = [
     {
@@ -713,6 +721,9 @@ export function TasksIntegration() {
 
   const visibleTasks = [
     ...demoTasks.filter(task => task.providerId === activeProviderId),
+    ...chatCreatedTasks
+      .filter(task => task.providerId === activeProviderId)
+      .map(task => ({ id: task.id, title: task.title, due: task.due, providerId: task.providerId })),
     ...generateProviderMockTasks(activeProviderId),
   ]
     .map(task => {

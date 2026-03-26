@@ -3,6 +3,15 @@ import { Button } from './ui/button';
 import { Sparkles, Settings, RefreshCw, CheckCircle2 } from 'lucide-react';
 import { useIntegrations } from '../contexts/IntegrationContext';
 import { useEffect, useState } from 'react';
+import { useAuth } from '../contexts/AuthContext';
+import {
+  addChatCreatedTask,
+  addCreatedKeyPointId,
+  loadChatSummaryKeyPoints,
+  loadCreatedKeyPointIds,
+  saveChatSummaryKeyPoints,
+} from '../services/chatSimulatorStorage';
+import { toast } from 'sonner';
 import { ChatSummarySettings } from './ChatSummarySettings';
 
 const MALAYSIA_TIMEZONE = 'Asia/Kuala_Lumpur';
@@ -189,14 +198,13 @@ interface ChatSummaryPanelProps {
 
 export function ChatSummaryPanel({ onSummaryCountChange }: ChatSummaryPanelProps) {
   const { state } = useIntegrations();
+  const { user } = useAuth();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [convertedTasks, setConvertedTasks] = useState<number[]>([]);
   const [summaryCountdown, setSummaryCountdown] = useState('');
   const [nextSummaryTarget, setNextSummaryTarget] = useState('');
-  const [displayedKeyPoints, setDisplayedKeyPoints] = useState<KeyPoint[]>(() => 
-    generateRandomKeyPoints(mockKeyPointsPool)
-  );
+  const [displayedKeyPoints, setDisplayedKeyPoints] = useState<KeyPoint[]>([]);
 
   const connectedChats = state.chats.filter(c => c.connected);
   const settings = state.chatSummarySettings || {
@@ -206,6 +214,23 @@ export function ChatSummaryPanel({ onSummaryCountChange }: ChatSummaryPanelProps
     keywordFilters: [],
     autoConvertTasks: false,
   };
+
+  useEffect(() => {
+    setConvertedTasks(loadCreatedKeyPointIds(user));
+  }, [user?.id, user?.email]);
+
+  useEffect(() => {
+    const persisted = loadChatSummaryKeyPoints(user);
+
+    if (persisted.length > 0) {
+      setDisplayedKeyPoints(persisted);
+      return;
+    }
+
+    const initialKeyPoints = generateRandomKeyPoints(mockKeyPointsPool);
+    setDisplayedKeyPoints(initialKeyPoints);
+    saveChatSummaryKeyPoints(user, initialKeyPoints);
+  }, [user?.id, user?.email]);
 
   // Filter key points based on connected channels and settings
   const visibleKeyPoints = displayedKeyPoints.filter(point =>
@@ -254,15 +279,45 @@ export function ChatSummaryPanel({ onSummaryCountChange }: ChatSummaryPanelProps
     setIsGenerating(true);
     // Simulate AI processing and generate new key points
     setTimeout(() => {
-      setDisplayedKeyPoints(generateRandomKeyPoints(mockKeyPointsPool));
-      setConvertedTasks([]); // Reset converted tasks when generating new summary
+      const nextKeyPoints = generateRandomKeyPoints(mockKeyPointsPool);
+      setDisplayedKeyPoints(nextKeyPoints);
+      saveChatSummaryKeyPoints(user, nextKeyPoints);
       setIsGenerating(false);
     }, 2000);
   };
 
+  const getTodayDisplayDate = () => {
+    const now = new Date();
+    const day = String(now.getDate()).padStart(2, '0');
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const year = now.getFullYear();
+    return `${day}/${month}/${year}`;
+  };
+
   const handleConvertToTask = (keyPointId: number) => {
-    setConvertedTasks(prev => [...prev, keyPointId]);
-    // In real implementation, this would create a task in the task provider
+    const keyPoint = visibleKeyPoints.find((point) => point.id === keyPointId);
+    if (!keyPoint) return;
+
+    const activeTaskProvider = state.tasks.find((task) => task.connected);
+    if (!activeTaskProvider) {
+      toast.error('No task provider connected. Please connect one in Task Integration first.');
+      return;
+    }
+
+    const taskTitle = `${keyPoint.text} (Created From Chat Key Points)`;
+
+    addChatCreatedTask(user, {
+      id: `summary-task-${keyPoint.id}-${Date.now()}`,
+      title: taskTitle,
+      due: getTodayDisplayDate(),
+      providerId: activeTaskProvider.id,
+      sourceChatProviderId: keyPoint.source,
+      createdAt: new Date().toISOString(),
+    });
+
+    addCreatedKeyPointId(user, keyPointId);
+    setConvertedTasks(prev => (prev.includes(keyPointId) ? prev : [...prev, keyPointId]));
+    toast.success('Task created from Chat Key Point.');
   };
 
   const getSourceColor = (source: string) => {
@@ -428,7 +483,7 @@ export function ChatSummaryPanel({ onSummaryCountChange }: ChatSummaryPanelProps
                       {isConverted && (
                         <div className="flex items-center gap-1" style={{ color: '#22D3EE' }}>
                           <CheckCircle2 className="w-4 h-4" />
-                          <span className="text-xs">Added</span>
+                          <span className="text-xs">Created</span>
                         </div>
                       )}
                     </div>

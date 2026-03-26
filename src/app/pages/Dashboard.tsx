@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Calendar as CalendarIcon, CheckCircle2, ChevronDown, ChevronUp, Clock, Database, Link, MessageSquare, Zap } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
@@ -28,11 +28,14 @@ const mockCalendarEvents = [
 export function Dashboard() {
   const { state, updateCalendarTaskSync } = useIntegrations();
   const { communicationSummaries } = useAI();
+  const focusSessionDurationMinutes = 25;
   const [showAllTimeline, setShowAllTimeline] = useState(false);
   const [liveSummaryCount, setLiveSummaryCount] = useState(communicationSummaries.length);
   const [checkedTimelineTaskIds, setCheckedTimelineTaskIds] = useState<number[]>([]);
   const [completingTimelineTaskIds, setCompletingTimelineTaskIds] = useState<number[]>([]);
   const [dismissedTimelineTaskIds, setDismissedTimelineTaskIds] = useState<number[]>([]);
+  const [focusSessionEndsAt, setFocusSessionEndsAt] = useState<number | null>(null);
+  const [focusSecondsRemaining, setFocusSecondsRemaining] = useState(0);
 
   const bufferPresets = [5, 10, 15, 20, 30];
   const nextUpBaseTime = '02:00 PM';
@@ -61,6 +64,7 @@ export function Dashboard() {
   const focusHours = 4.2;
 
   const totalConnections = connectedCalendars.length + connectedTasks.length + connectedChats.length;
+  const isFocusSessionActive = focusSessionEndsAt !== null && focusSecondsRemaining > 0;
 
   const today = new Date();
   const formattedDate = today.toLocaleDateString('en-US', {
@@ -153,6 +157,47 @@ export function Dashboard() {
     }, 850);
   };
 
+  const formatFocusCountdown = (seconds: number) => {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${String(minutes).padStart(2, '0')}:${String(remainingSeconds).padStart(2, '0')}`;
+  };
+
+  const handleStartFocusSession = () => {
+    if (isFocusSessionActive) {
+      setFocusSessionEndsAt(null);
+      setFocusSecondsRemaining(0);
+      toast.info('Focus session ended.');
+      return;
+    }
+
+    const endsAt = Date.now() + focusSessionDurationMinutes * 60 * 1000;
+    setFocusSessionEndsAt(endsAt);
+    setFocusSecondsRemaining(focusSessionDurationMinutes * 60);
+    toast.success(`Focus session started for ${focusSessionDurationMinutes} minutes.`);
+  };
+
+  useEffect(() => {
+    if (!focusSessionEndsAt) return;
+
+    const updateRemaining = () => {
+      const remaining = Math.max(0, Math.ceil((focusSessionEndsAt - Date.now()) / 1000));
+      setFocusSecondsRemaining(remaining);
+
+      if (remaining === 0) {
+        setFocusSessionEndsAt(null);
+        toast.success('Focus session completed. Great work.');
+      }
+    };
+
+    updateRemaining();
+    const timer = window.setInterval(updateRemaining, 1000);
+
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [focusSessionEndsAt]);
+
   return (
     <div className="p-8 space-y-6" style={{ backgroundColor: '#0F172A' }}>
       {/* Header */}
@@ -178,10 +223,13 @@ export function Dashboard() {
           )}
           <Button 
             className="shadow-lg" 
+            onClick={handleStartFocusSession}
             style={{ backgroundColor: '#6366F1', color: '#fff' }}
           >
             <Clock className="w-4 h-4 mr-2" />
-            Start Focus Session
+            {isFocusSessionActive
+              ? `End Focus Session (${formatFocusCountdown(focusSecondsRemaining)})`
+              : 'Start Focus Session'}
           </Button>
         </div>
       </div>

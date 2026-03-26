@@ -2,10 +2,19 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { CheckCircle2, Send, MessageSquare, Zap, Trash2, Brain, Sparkles, Lock } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
-import { Input } from '../components/ui/input';
 import { useIntegrations } from '../contexts/IntegrationContext';
 import { useAI } from '../contexts/AIContext';
+import { useAuth } from '../contexts/AuthContext';
 import { ChatConnectionModal } from '../components/ChatConnectionModal';
+import {
+  addChatCreatedTask,
+  clearChatSummaryKeyPoints,
+  clearCreatedKeyPointIds,
+  clearChatCreatedTasks,
+  clearChatSimulatorState,
+  loadChatSimulatorState,
+  saveChatSimulatorState,
+} from '../services/chatSimulatorStorage';
 import { toast } from 'sonner';
 
 const chatProviderInfo = [
@@ -36,6 +45,7 @@ interface Message {
   timestamp: string;
   taskCreated?: boolean;
   source?: string;
+  taskPageLink?: string;
 }
 
 interface SimulatedTask {
@@ -76,6 +86,22 @@ const defaultSimulatedTasks: SimulatedTask[] = [
     title: 'Post-week retrospective',
     priority: 'low',
     dueDate: '02/03/2026',
+  },
+];
+
+const commandOptions = [
+  '/task Submit My Report /priority medium /due tomorrow',
+  '/task Research SyncFlow /priority high /due 30/03/2026',
+  '/calendar',
+  '/events',
+] as const;
+
+const createInitialChatMessages = (): Message[] => [
+  {
+    id: 1,
+    text: '🤖 AI Engine Active: I can detect tasks, meetings, and schedule changes from natural language. Try: "I need to review the reports by tomorrow" or "Can we meet at 3pm?"',
+    sender: 'ai',
+    timestamp: new Date().toLocaleTimeString(),
   },
 ];
 
@@ -179,6 +205,11 @@ const resolveDueDateInput = (rawDue: string) => {
   };
 };
 
+const buildAppHashRouteUrl = (route: string) => {
+  const baseUrl = window.location.href.split('#')[0];
+  return `${baseUrl}#${route}`;
+};
+
 export function ChatIntegration() {
   type OnboardingPlacement = 'top' | 'bottom' | 'left' | 'right';
   type OnboardingStepId =
@@ -208,6 +239,7 @@ export function ChatIntegration() {
 
   const { state, connectChat, disconnectChat, canConnect, getActiveProvider } = useIntegrations();
   const { addChatMessage, autoCreateTasks, toggleAutoCreateTasks } = useAI();
+  const { user } = useAuth();
   const [selectedProvider, setSelectedProvider] = useState<string | null>(null);
   const [activeChat, setActiveChat] = useState<string | null>(null);
   const [simulatedTasks, setSimulatedTasks] = useState<SimulatedTask[]>(defaultSimulatedTasks);
@@ -216,15 +248,9 @@ export function ChatIntegration() {
     { id: 2, title: 'Client Call - Acme Corp', date: '26/3/2026', time: '11:00 AM' },
     { id: 3, title: 'Design Review', date: '26/3/2026', time: '02:00 PM' },
   ]);
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: 1,
-      text: '🤖 AI Engine Active: I can detect tasks, meetings, and schedule changes from natural language. Try: "I need to review the reports by tomorrow" or "Can we meet at 3pm?"',
-      sender: 'ai',
-      timestamp: new Date().toLocaleTimeString(),
-    },
-  ]);
-  const [inputValue, setInputValue] = useState('');
+  const [messages, setMessages] = useState<Message[]>(createInitialChatMessages);
+  const [selectedCommand, setSelectedCommand] = useState<string>(commandOptions[0]);
+  const [hasLoadedPersistedChatState, setHasLoadedPersistedChatState] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(() => !state.chats.some((chat) => chat.connected));
   const [hasUserRequestedTutorial, setHasUserRequestedTutorial] = useState(false);
   const [onboardingStepIndex, setOnboardingStepIndex] = useState(0);
@@ -290,8 +316,8 @@ export function ChatIntegration() {
       },
       {
         id: 'select-provider-to-test-area',
-        action: 'Review Select a Provider to Test area',
-        instruction: 'This chat simulator area will first prompt you to Select a Provider to Test before sending messages.',
+        action: 'Connected Channel Chat Area',
+        instruction: 'This chat simulator area will let you experience the chat to add, manage or delete your schedule and task.',
         microcopy: 'If no provider is active, click Test on a connected provider card to activate this panel.',
         whyItMatters: 'Clarifies where mock chat interactions happen before AI parsing settings are adjusted.',
         targetSelector: '[data-onboarding="chat-simulator"]',
@@ -714,9 +740,26 @@ export function ChatIntegration() {
     setChatConnectionError(null);
   };
 
+  const handleActivateProviderTest = (providerId: string) => {
+    setActiveChat(providerId);
+
+    if (showOnboarding && currentOnboardingStep?.id === 'test-chat-to-task') {
+      const nextIndex = onboardingStepIndex + 1;
+      if (nextIndex < onboardingSteps.length) {
+        setOnboardingStepIndex(nextIndex);
+      }
+    }
+  };
+
   const handleDisconnect = (providerId: string) => {
     if (confirm(`Disconnect ${chatProviderInfo.find(p => p.id === providerId)?.name}?`)) {
       disconnectChat(providerId);
+      clearChatSimulatorState(user);
+      clearChatCreatedTasks(user);
+      clearCreatedKeyPointIds(user);
+      clearChatSummaryKeyPoints(user);
+      setMessages(createInitialChatMessages());
+      setSimulatedTasks(defaultSimulatedTasks);
       toast.success('Chat Provider Disconnected', {
         description: 'You can now connect a different chat provider.',
         duration: 3000,
@@ -726,6 +769,34 @@ export function ChatIntegration() {
       }
     }
   };
+
+  useEffect(() => {
+    setHasLoadedPersistedChatState(false);
+    const persisted = loadChatSimulatorState(user);
+
+    if (!persisted) {
+      setActiveChat(null);
+      setMessages(createInitialChatMessages());
+      setSimulatedTasks(defaultSimulatedTasks);
+      setHasLoadedPersistedChatState(true);
+      return;
+    }
+
+    setActiveChat(persisted.activeChat);
+    setMessages(persisted.messages.length > 0 ? persisted.messages : createInitialChatMessages());
+    setSimulatedTasks(persisted.simulatedTasks.length > 0 ? persisted.simulatedTasks : defaultSimulatedTasks);
+    setHasLoadedPersistedChatState(true);
+  }, [user?.id, user?.email]);
+
+  useEffect(() => {
+    if (!hasLoadedPersistedChatState) return;
+
+    saveChatSimulatorState(user, {
+      activeChat,
+      messages,
+      simulatedTasks,
+    });
+  }, [activeChat, messages, simulatedTasks, hasLoadedPersistedChatState, user?.id, user?.email]);
 
   useEffect(() => {
     const hasConnectedChat = state.chats.some((chat) => chat.connected);
@@ -785,9 +856,9 @@ export function ChatIntegration() {
   }, [messages, activeChat]);
 
   const handleSendMessage = () => {
-    if (!inputValue.trim() || !activeChat) return;
+    if (!selectedCommand.trim() || !activeChat) return;
 
-    const currentInput = inputValue.trim();
+    const currentInput = selectedCommand.trim();
 
     const newMessage: Message = {
       id: messages.length + 1,
@@ -812,7 +883,6 @@ export function ChatIntegration() {
           timestamp: new Date().toLocaleTimeString(),
         };
         setMessages((prev) => [...prev, aiResponse]);
-        setInputValue('');
         return;
       }
 
@@ -825,7 +895,20 @@ export function ChatIntegration() {
           timestamp: new Date().toLocaleTimeString(),
         };
         setMessages((prev) => [...prev, aiResponse]);
-        setInputValue('');
+        return;
+      }
+
+      const activeTaskProvider = state.tasks.find((task) => task.connected);
+      if (!activeTaskProvider) {
+        const aiResponse: Message = {
+          id: messages.length + 2,
+          text:
+            '❌ Unable to create task from quick command.\n\n' +
+            'No task provider is connected. Please connect one in Task Integration first.',
+          sender: 'ai',
+          timestamp: new Date().toLocaleTimeString(),
+        };
+        setMessages((prev) => [...prev, aiResponse]);
         return;
       }
 
@@ -835,6 +918,18 @@ export function ChatIntegration() {
         priority: parsed.priority,
         dueDate: resolvedDue.dueDate,
       };
+
+      const classifiedTaskTitle = `${createdTask.title} (Created From Chat)`;
+
+      addChatCreatedTask(user, {
+        id: `chat-task-${createdTask.id}`,
+        title: classifiedTaskTitle,
+        due: createdTask.dueDate,
+        providerId: activeTaskProvider.id,
+        sourceChatProviderId: activeChat,
+        createdAt: new Date().toISOString(),
+      });
+
       setSimulatedTasks((prev) => [createdTask, ...prev]);
 
       const aiResponse: Message = {
@@ -842,13 +937,14 @@ export function ChatIntegration() {
         text:
           '✅ Task created from quick command\n\n' +
           `📝 Title: ${createdTask.title}\n` +
+          `📌 Priority: ${createdTask.priority}\n` +
           `📅 Due: ${createdTask.dueDate} (MYT parsing)`,
         sender: 'ai',
         timestamp: new Date().toLocaleTimeString(),
         taskCreated: true,
+        taskPageLink: buildAppHashRouteUrl('/integration/tasks'),
       };
       setMessages((prev) => [...prev, aiResponse]);
-      setInputValue('');
       return;
     }
 
@@ -866,7 +962,6 @@ export function ChatIntegration() {
         timestamp: new Date().toLocaleTimeString(),
       };
       setMessages((prev) => [...prev, aiResponse]);
-      setInputValue('');
       return;
     }
 
@@ -881,7 +976,6 @@ export function ChatIntegration() {
         timestamp: new Date().toLocaleTimeString(),
       };
       setMessages((prev) => [...prev, aiResponse]);
-      setInputValue('');
       return;
     }
 
@@ -960,7 +1054,6 @@ export function ChatIntegration() {
       setMessages((prev) => [...prev, aiResponse]);
     }, 800);
 
-    setInputValue('');
   };
 
   return (
@@ -1204,7 +1297,7 @@ export function ChatIntegration() {
                         data-onboarding="chat-test-button"
                         className="flex-1"
                         variant="outline"
-                        onClick={() => setActiveChat(provider.id)}
+                        onClick={() => handleActivateProviderTest(provider.id)}
                         style={{ 
                           borderColor: activeChat === provider.id ? '#22D3EE' : '#6366F1', 
                           color: activeChat === provider.id ? '#22D3EE' : '#6366F1',
@@ -1281,6 +1374,15 @@ export function ChatIntegration() {
                           }}
                         >
                           <p className="whitespace-pre-line">{message.text}</p>
+                          {message.taskPageLink && (
+                            <a
+                              href={message.taskPageLink}
+                              className="inline-block mt-2 text-xs underline"
+                              style={{ color: '#22D3EE' }}
+                            >
+                              View Task Details
+                            </a>
+                          )}
                           <p className="text-xs mt-1 opacity-70">{message.timestamp}</p>
                         </div>
                       </div>
@@ -1289,14 +1391,20 @@ export function ChatIntegration() {
 
                   {/* Input Area */}
                   <div className="flex gap-2">
-                    <Input
-                      value={inputValue}
-                      onChange={(e) => setInputValue(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-                      placeholder="Type /task to create a task..."
-                      className="flex-1"
-                      style={{ backgroundColor: '#0F172A', borderColor: '#374151', color: '#E5E7EB' }}
-                    />
+                    <div className="flex-1">
+                      <select
+                        value={selectedCommand}
+                        onChange={(event) => setSelectedCommand(event.target.value)}
+                        className="w-full px-3 py-2 rounded-lg text-sm"
+                        style={{ backgroundColor: '#0F172A', borderColor: '#374151', color: '#E5E7EB', border: '1px solid' }}
+                      >
+                        {commandOptions.map((command) => (
+                          <option key={command} value={command}>
+                            {command}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                     <Button onClick={handleSendMessage} style={{ backgroundColor: '#6366F1', color: '#fff' }}>
                       <Send className="w-4 h-4" />
                     </Button>
