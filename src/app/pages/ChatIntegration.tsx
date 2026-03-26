@@ -12,6 +12,7 @@ import {
   clearCreatedKeyPointIds,
   clearChatCreatedTasks,
   clearChatSimulatorState,
+  loadChatCreatedTasks,
   loadManualTasks,
   loadChatSimulatorState,
   saveChatSimulatorState,
@@ -996,9 +997,11 @@ export function ChatIntegration() {
 
     if (currentInput.toLowerCase().startsWith('/events')) {
       const manualTasks = loadManualTasks(user);
+      const chatCreatedTasks = loadChatCreatedTasks(user);
       const mergedTasks = [
         ...simulatedTasks.map((task) => ({ title: task.title, dueDate: task.dueDate })),
         ...manualTasks.map((task) => ({ title: task.title, dueDate: task.due })),
+        ...chatCreatedTasks.map((task) => ({ title: task.title, dueDate: task.due })),
       ];
 
       const dedupedTasks = mergedTasks.filter((task, index, arr) => {
