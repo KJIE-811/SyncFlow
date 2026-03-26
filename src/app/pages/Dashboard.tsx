@@ -11,6 +11,8 @@ import { ChatSummaryPanel } from '../components/ChatSummaryPanel';
 import { toast } from 'sonner';
 
 const DASHBOARD_TUTORIAL_STORAGE_PREFIX = 'syncflow_dashboard_tutorial_seen';
+const FOCUS_DURATION_STORAGE_PREFIX = 'syncflow_focus_duration_minutes';
+const FOCUS_RUNTIME_STORAGE_PREFIX = 'syncflow_focus_runtime';
 
 // Mock data for unified display
 const mockTasks = [
@@ -51,7 +53,7 @@ export function Dashboard() {
   const { state, updateCalendarTaskSync } = useIntegrations();
   const { communicationSummaries } = useAI();
   const { user } = useAuth();
-  const focusSessionDurationMinutes = 25;
+  const [focusSessionDurationMinutes, setFocusSessionDurationMinutes] = useState(25);
   const [showAllTimeline, setShowAllTimeline] = useState(false);
   const [liveSummaryCount, setLiveSummaryCount] = useState(communicationSummaries.length);
   const [checkedTimelineTaskIds, setCheckedTimelineTaskIds] = useState<number[]>([]);
@@ -85,6 +87,16 @@ export function Dashboard() {
   const tutorialStorageKey = useMemo(() => {
     if (!user) return `${DASHBOARD_TUTORIAL_STORAGE_PREFIX}:guest`;
     return `${DASHBOARD_TUTORIAL_STORAGE_PREFIX}:${user.id}:${encodeURIComponent(user.email.toLowerCase())}`;
+  }, [user?.id, user?.email]);
+
+  const focusDurationStorageKey = useMemo(() => {
+    if (!user) return `${FOCUS_DURATION_STORAGE_PREFIX}:guest`;
+    return `${FOCUS_DURATION_STORAGE_PREFIX}:${user.id}:${encodeURIComponent(user.email.toLowerCase())}`;
+  }, [user?.id, user?.email]);
+
+  const focusRuntimeStorageKey = useMemo(() => {
+    if (!user) return `${FOCUS_RUNTIME_STORAGE_PREFIX}:guest`;
+    return `${FOCUS_RUNTIME_STORAGE_PREFIX}:${user.id}:${encodeURIComponent(user.email.toLowerCase())}`;
   }, [user?.id, user?.email]);
 
   const onboardingSteps = useMemo<OnboardingStep[]>(() => [
@@ -226,7 +238,7 @@ export function Dashboard() {
   const nextUpWithBuffer = useMemo(() => {
     const parsed = new Date(`${today.toDateString()} ${nextUpBaseTime}`);
     if (Number.isNaN(parsed.getTime())) {
-      return `${nextUpBaseTime} (+${bufferMinutes}m buffer)`;
+      return `${nextUpBaseTime} (+${bufferMinutes}minutes buffer)`;
     }
 
     parsed.setMinutes(parsed.getMinutes() + bufferMinutes);
@@ -285,6 +297,7 @@ export function Dashboard() {
     if (isFocusSessionActive) {
       setFocusSessionEndsAt(null);
       setFocusSecondsRemaining(0);
+      sessionStorage.removeItem(focusRuntimeStorageKey);
       toast.info('Focus session ended.');
       return;
     }
@@ -292,6 +305,10 @@ export function Dashboard() {
     const endsAt = Date.now() + focusSessionDurationMinutes * 60 * 1000;
     setFocusSessionEndsAt(endsAt);
     setFocusSecondsRemaining(focusSessionDurationMinutes * 60);
+    sessionStorage.setItem(
+      focusRuntimeStorageKey,
+      JSON.stringify({ endsAt, startedAt: Date.now(), durationMinutes: focusSessionDurationMinutes })
+    );
     toast.success(`Focus session started for ${focusSessionDurationMinutes} minutes.`);
   };
 
@@ -452,6 +469,7 @@ export function Dashboard() {
 
       if (remaining === 0) {
         setFocusSessionEndsAt(null);
+        sessionStorage.removeItem(focusRuntimeStorageKey);
         toast.success('Focus session completed. Great work.');
       }
     };
@@ -462,7 +480,54 @@ export function Dashboard() {
     return () => {
       window.clearInterval(timer);
     };
-  }, [focusSessionEndsAt]);
+  }, [focusSessionEndsAt, focusRuntimeStorageKey]);
+
+  useEffect(() => {
+    const storedDuration = localStorage.getItem(focusDurationStorageKey);
+    if (!storedDuration) return;
+    const parsed = Number(storedDuration);
+    if (Number.isFinite(parsed) && parsed >= 5 && parsed <= 120) {
+      setFocusSessionDurationMinutes(parsed);
+    }
+  }, [focusDurationStorageKey]);
+
+  useEffect(() => {
+    localStorage.setItem(focusDurationStorageKey, String(focusSessionDurationMinutes));
+  }, [focusSessionDurationMinutes, focusDurationStorageKey]);
+
+  useEffect(() => {
+    const storedRuntimeRaw = sessionStorage.getItem(focusRuntimeStorageKey);
+    if (!storedRuntimeRaw) return;
+
+    try {
+      const storedRuntime = JSON.parse(storedRuntimeRaw) as {
+        endsAt?: number;
+        durationMinutes?: number;
+      };
+
+      const endsAt = Number(storedRuntime.endsAt);
+      const durationMinutes = Number(storedRuntime.durationMinutes);
+      if (Number.isFinite(durationMinutes) && durationMinutes >= 5 && durationMinutes <= 120) {
+        setFocusSessionDurationMinutes(durationMinutes);
+      }
+
+      if (!Number.isFinite(endsAt)) {
+        sessionStorage.removeItem(focusRuntimeStorageKey);
+        return;
+      }
+
+      const remaining = Math.max(0, Math.ceil((endsAt - Date.now()) / 1000));
+      if (remaining <= 0) {
+        sessionStorage.removeItem(focusRuntimeStorageKey);
+        return;
+      }
+
+      setFocusSessionEndsAt(endsAt);
+      setFocusSecondsRemaining(remaining);
+    } catch {
+      sessionStorage.removeItem(focusRuntimeStorageKey);
+    }
+  }, [focusRuntimeStorageKey]);
 
   useEffect(() => {
     const alreadySeen = localStorage.getItem(tutorialStorageKey) === '1';
@@ -525,6 +590,19 @@ export function Dashboard() {
               <span className="text-sm font-medium" style={{ color: '#EF4444' }}>Local-Only Mode</span>
             </div>
           )}
+          <select
+            value={focusSessionDurationMinutes}
+            onChange={(event) => setFocusSessionDurationMinutes(Number(event.target.value))}
+            disabled={isFocusSessionActive}
+            className="px-3 py-2 rounded-lg text-sm"
+            style={{ backgroundColor: '#1E293B', borderColor: '#374151', color: '#E5E7EB', border: '1px solid' }}
+            aria-label="Focus session duration"
+          >
+            <option value={15}>15 min</option>
+            <option value={25}>25 min</option>
+            <option value={45}>45 min</option>
+            <option value={60}>60 min</option>
+          </select>
           <Button 
             className="shadow-lg" 
             onClick={handleStartFocusSession}
