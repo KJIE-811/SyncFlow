@@ -206,3 +206,7 @@ export const saveManualTasks = (
 ) => {
   localStorage.setItem(getManualTasksKey(user), JSON.stringify(tasks));
 };
+
+export const clearManualTasks = (user: StorageUserRef | null | undefined) => {
+  localStorage.removeItem(getManualTasksKey(user));
+};

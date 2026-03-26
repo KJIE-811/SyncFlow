@@ -5,7 +5,7 @@ import { Button } from '../components/ui/button';
 import { useIntegrations } from '../contexts/IntegrationContext';
 import { useAuth } from '../contexts/AuthContext';
 import { TaskConnectionModal } from '../components/TaskConnectionModal';
-import { ChatCreatedTask, loadChatCreatedTasks, loadManualTasks, saveManualTasks } from '../services/chatSimulatorStorage';
+import { ChatCreatedTask, clearManualTasks, loadChatCreatedTasks, loadManualTasks, saveManualTasks } from '../services/chatSimulatorStorage';
 import { toast } from 'sonner';
 
 const taskProviderInfo = [
@@ -617,8 +617,11 @@ export function TasksIntegration() {
   const handleDisconnect = (providerId: string) => {
     if (confirm(`Disconnect ${taskProviderInfo.find(p => p.id === providerId)?.name}? Tasks will remain in the source app.`)) {
       disconnectTask(providerId);
+      setDemoTasks([]);
+      setTaskOverrides({});
+      clearManualTasks(user);
       toast.success('Task Provider Disconnected', {
-        description: 'You can now connect a different task provider.',
+        description: 'Manual tasks were cleared. You can now connect a different task provider.',
         duration: 3000,
       });
     }
