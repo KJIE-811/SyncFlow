@@ -5,7 +5,7 @@ import { Button } from '../components/ui/button';
 import { useIntegrations } from '../contexts/IntegrationContext';
 import { useAuth } from '../contexts/AuthContext';
 import { TaskConnectionModal } from '../components/TaskConnectionModal';
-import { ChatCreatedTask, loadChatCreatedTasks } from '../services/chatSimulatorStorage';
+import { ChatCreatedTask, loadChatCreatedTasks, loadManualTasks, saveManualTasks } from '../services/chatSimulatorStorage';
 import { toast } from 'sonner';
 
 const taskProviderInfo = [
@@ -93,6 +93,14 @@ export function TasksIntegration() {
   useEffect(() => {
     setChatCreatedTasks(loadChatCreatedTasks(user));
   }, [user?.id, user?.email]);
+
+  useEffect(() => {
+    setDemoTasks(loadManualTasks(user));
+  }, [user?.id, user?.email]);
+
+  useEffect(() => {
+    saveManualTasks(user, demoTasks);
+  }, [demoTasks, user?.id, user?.email]);
 
   const baseOnboardingSteps: OnboardingStep[] = [
     {

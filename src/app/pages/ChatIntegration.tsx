@@ -12,6 +12,7 @@ import {
   clearCreatedKeyPointIds,
   clearChatCreatedTasks,
   clearChatSimulatorState,
+  loadManualTasks,
   loadChatSimulatorState,
   saveChatSimulatorState,
 } from '../services/chatSimulatorStorage';
@@ -994,11 +995,22 @@ export function ChatIntegration() {
     }
 
     if (currentInput.toLowerCase().startsWith('/events')) {
+      const manualTasks = loadManualTasks(user);
+      const mergedTasks = [
+        ...simulatedTasks.map((task) => ({ title: task.title, dueDate: task.dueDate })),
+        ...manualTasks.map((task) => ({ title: task.title, dueDate: task.due })),
+      ];
+
+      const dedupedTasks = mergedTasks.filter((task, index, arr) => {
+        const key = `${task.title}::${task.dueDate}`;
+        return arr.findIndex((candidate) => `${candidate.title}::${candidate.dueDate}` === key) === index;
+      });
+
       const aiResponse: Message = {
         id: messages.length + 2,
         text:
-          simulatedTasks.length > 0
-            ? `🗂 Retrieved ${simulatedTasks.length} task(s) from task list:\n\n${simulatedTasks
+          dedupedTasks.length > 0
+            ? `🗂 Retrieved ${dedupedTasks.length} task(s) from task list:\n\n${dedupedTasks
                 .slice(0, 8)
               .map((task, index) => `${index + 1}. ${task.title} • ${task.dueDate}`)
                 .join('\n')}`

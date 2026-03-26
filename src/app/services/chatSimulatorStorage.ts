@@ -38,6 +38,7 @@ const CHAT_SIM_STATE_PREFIX = 'syncflow_chat_sim_state';
 const CHAT_CREATED_TASKS_PREFIX = 'syncflow_chat_created_tasks';
 const CHAT_KEYPOINT_CREATED_PREFIX = 'syncflow_chat_keypoint_created';
 const CHAT_SUMMARY_KEYPOINTS_PREFIX = 'syncflow_chat_summary_keypoints';
+const MANUAL_TASKS_PREFIX = 'syncflow_manual_tasks';
 
 const getScope = (user: StorageUserRef | null | undefined) => {
   if (!user) return 'guest';
@@ -55,6 +56,9 @@ const getChatKeypointCreatedKey = (user: StorageUserRef | null | undefined) =>
 
 const getChatSummaryKeyPointsKey = (user: StorageUserRef | null | undefined) =>
   `${CHAT_SUMMARY_KEYPOINTS_PREFIX}:${getScope(user)}`;
+
+const getManualTasksKey = (user: StorageUserRef | null | undefined) =>
+  `${MANUAL_TASKS_PREFIX}:${getScope(user)}`;
 
 export const loadChatSimulatorState = (user: StorageUserRef | null | undefined): PersistedChatSimulatorState | null => {
   try {
@@ -168,4 +172,37 @@ export const saveChatSummaryKeyPoints = (
 
 export const clearChatSummaryKeyPoints = (user: StorageUserRef | null | undefined) => {
   localStorage.removeItem(getChatSummaryKeyPointsKey(user));
+};
+
+export interface PersistedManualTask {
+  id: string;
+  title: string;
+  due: string;
+  providerId: string;
+}
+
+export const loadManualTasks = (user: StorageUserRef | null | undefined): PersistedManualTask[] => {
+  try {
+    const raw = localStorage.getItem(getManualTasksKey(user));
+    if (!raw) return [];
+
+    const parsed = JSON.parse(raw) as PersistedManualTask[];
+    if (!Array.isArray(parsed)) return [];
+
+    return parsed.filter((task) =>
+      typeof task?.id === 'string' &&
+      typeof task?.title === 'string' &&
+      typeof task?.due === 'string' &&
+      typeof task?.providerId === 'string'
+    );
+  } catch {
+    return [];
+  }
+};
+
+export const saveManualTasks = (
+  user: StorageUserRef | null | undefined,
+  tasks: PersistedManualTask[],
+) => {
+  localStorage.setItem(getManualTasksKey(user), JSON.stringify(tasks));
 };
