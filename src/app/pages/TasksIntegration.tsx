@@ -78,6 +78,10 @@ export function TasksIntegration() {
   const [demoTaskTitle, setDemoTaskTitle] = useState('');
   const [demoTaskDueDate, setDemoTaskDueDate] = useState('');
   const [demoTasks, setDemoTasks] = useState<Array<{ id: string; title: string; due: string; providerId: string }>>([]);
+  const [openedTaskId, setOpenedTaskId] = useState<string | null>(null);
+  const [openedTaskTitle, setOpenedTaskTitle] = useState('');
+  const [openedTaskDueDate, setOpenedTaskDueDate] = useState('');
+  const [taskOverrides, setTaskOverrides] = useState<Record<string, { title: string; due: string }>>({});
   const [taskSearchKeyword, setTaskSearchKeyword] = useState('');
   const [dueDateSortOrder, setDueDateSortOrder] = useState<'asc' | 'desc'>('asc');
   const tooltipRef = useRef<HTMLDivElement | null>(null);
@@ -692,6 +696,84 @@ export function TasksIntegration() {
     return Number.isNaN(parsed.getTime()) ? Number.MAX_SAFE_INTEGER : parsed.getTime();
   };
 
+  const parseDisplayDueDateToISO = (displayDueDate: string) => {
+    const segments = displayDueDate.split('/');
+    if (segments.length !== 3) return '';
+
+    const [day, month, year] = segments.map(value => Number(value));
+    if (!day || !month || !year) return '';
+
+    const parsed = new Date(year, month - 1, day);
+    if (Number.isNaN(parsed.getTime())) return '';
+
+    const normalizedDay = String(day).padStart(2, '0');
+    const normalizedMonth = String(month).padStart(2, '0');
+    return `${year}-${normalizedMonth}-${normalizedDay}`;
+  };
+
+  const visibleTasks = [
+    ...demoTasks.filter(task => task.providerId === activeProviderId),
+    ...generateProviderMockTasks(activeProviderId),
+  ]
+    .map(task => {
+      const override = taskOverrides[task.id];
+      if (!override) return task;
+      return {
+        ...task,
+        title: override.title,
+        due: override.due,
+      };
+    })
+    .filter(task => {
+      const keyword = taskSearchKeyword.trim().toLowerCase();
+      if (!keyword) return true;
+      return (
+        task.title.toLowerCase().includes(keyword) ||
+        task.due.toLowerCase().includes(keyword)
+      );
+    })
+    .sort((a, b) => {
+      const timeA = parseDisplayDueDateToTimestamp(a.due);
+      const timeB = parseDisplayDueDateToTimestamp(b.due);
+      return dueDateSortOrder === 'asc' ? timeA - timeB : timeB - timeA;
+    });
+
+  const handleOpenTask = (task: { id: string; title: string; due: string }) => {
+    setOpenedTaskId(task.id);
+    setOpenedTaskTitle(task.title);
+    setOpenedTaskDueDate(parseDisplayDueDateToISO(task.due));
+  };
+
+  const handleSaveOpenedTask = () => {
+    if (!openedTaskId) return;
+
+    const trimmedTitle = openedTaskTitle.trim();
+    if (!trimmedTitle) {
+      toast.error('Task title cannot be empty.');
+      return;
+    }
+
+    if (!openedTaskDueDate) {
+      toast.error('Please select a due date.');
+      return;
+    }
+
+    const formattedDueDate = formatDueDate(openedTaskDueDate);
+
+    setTaskOverrides(previous => ({
+      ...previous,
+      [openedTaskId]: { title: trimmedTitle, due: formattedDueDate },
+    }));
+
+    setDemoTasks(previous => previous.map(task => (
+      task.id === openedTaskId
+        ? { ...task, title: trimmedTitle, due: formattedDueDate }
+        : task
+    )));
+
+    toast.success('Task updated.');
+  };
+
   return (
     <div className="p-8" style={{ backgroundColor: '#0F172A' }}>
       {/* Header */}
@@ -910,31 +992,53 @@ export function TasksIntegration() {
                     </div>
                   </div>
 
-                  {[
-                    ...demoTasks.filter(task => task.providerId === activeProviderId),
-                    ...generateProviderMockTasks(activeProviderId),
-                  ]
-                    .filter(task => {
-                      const keyword = taskSearchKeyword.trim().toLowerCase();
-                      if (!keyword) return true;
-                      return (
-                        task.title.toLowerCase().includes(keyword) ||
-                        task.due.toLowerCase().includes(keyword)
-                      );
-                    })
-                    .sort((a, b) => {
-                      const timeA = parseDisplayDueDateToTimestamp(a.due);
-                      const timeB = parseDisplayDueDateToTimestamp(b.due);
-                      return dueDateSortOrder === 'asc' ? timeA - timeB : timeB - timeA;
-                    })
-                    .map(task => (
+                  {openedTaskId && (
+                    <div className="mb-3 p-3 rounded-lg" style={{ backgroundColor: '#111827', border: '1px solid #1F2937' }}>
+                      <div className="text-sm font-medium mb-2" style={{ color: '#E5E7EB' }}>Edit Opened Task</div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <input
+                          value={openedTaskTitle}
+                          onChange={(event) => setOpenedTaskTitle(event.target.value)}
+                          placeholder="Task title"
+                          className="w-full p-2 rounded"
+                          style={{ backgroundColor: '#0B1220', border: '1px solid #1F2937', color: '#E5E7EB' }}
+                        />
+                        <input
+                          type="date"
+                          value={openedTaskDueDate}
+                          onChange={(event) => setOpenedTaskDueDate(event.target.value)}
+                          className="w-full p-2 rounded"
+                          style={{ backgroundColor: '#0B1220', border: '1px solid #1F2937', color: '#E5E7EB' }}
+                        />
+                      </div>
+                      <div className="mt-3 flex justify-end gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setOpenedTaskId(null)}
+                          style={{ borderColor: '#374151', color: '#E5E7EB' }}
+                        >
+                          Close
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={handleSaveOpenedTask}
+                          style={{ backgroundColor: '#6366F1', color: '#fff' }}
+                        >
+                          Save
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {visibleTasks.map(task => (
                     <div key={task.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#091121', padding: 12, borderRadius: 8, marginBottom: 10 }}>
                       <div>
                         <div style={{ color: '#E5E7EB' }}>{task.title}</div>
                         <div style={{ color: '#9CA3AF', fontSize: '0.85rem' }}>{task.due}</div>
                       </div>
                       <div>
-                        <Button size="sm" onClick={() => toast.success('Open task')} style={{ backgroundColor: '#fff', color: '#0F172A' }}>Open</Button>
+                        <Button size="sm" onClick={() => handleOpenTask(task)} style={{ backgroundColor: '#fff', color: '#0F172A' }}>Open</Button>
                       </div>
                     </div>
                   ))}
