@@ -1031,7 +1031,7 @@ export function TasksIntegration() {
                               size="sm"
                               variant="outline"
                               onClick={() => setOpenedTaskId(null)}
-                              style={{ borderColor: '#374151', color: '#000000' }}
+                              style={{ borderColor: '#374151', color: '#000000', backgroundColor: '#FFFFFF' }}
                             >
                               Close
                             </Button>
