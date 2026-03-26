@@ -772,6 +772,7 @@ export function TasksIntegration() {
     )));
 
     toast.success('Task updated.');
+    setOpenedTaskId(null);
   };
 
   return (
@@ -992,54 +993,58 @@ export function TasksIntegration() {
                     </div>
                   </div>
 
-                  {openedTaskId && (
-                    <div className="mb-3 p-3 rounded-lg" style={{ backgroundColor: '#111827', border: '1px solid #1F2937' }}>
-                      <div className="text-sm font-medium mb-2" style={{ color: '#E5E7EB' }}>Edit Opened Task</div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <input
-                          value={openedTaskTitle}
-                          onChange={(event) => setOpenedTaskTitle(event.target.value)}
-                          placeholder="Task title"
-                          className="w-full p-2 rounded"
-                          style={{ backgroundColor: '#0B1220', border: '1px solid #1F2937', color: '#E5E7EB' }}
-                        />
-                        <input
-                          type="date"
-                          value={openedTaskDueDate}
-                          onChange={(event) => setOpenedTaskDueDate(event.target.value)}
-                          className="w-full p-2 rounded"
-                          style={{ backgroundColor: '#0B1220', border: '1px solid #1F2937', color: '#E5E7EB' }}
-                        />
-                      </div>
-                      <div className="mt-3 flex justify-end gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setOpenedTaskId(null)}
-                          style={{ borderColor: '#374151', color: '#E5E7EB' }}
-                        >
-                          Close
-                        </Button>
-                        <Button
-                          size="sm"
-                          onClick={handleSaveOpenedTask}
-                          style={{ backgroundColor: '#6366F1', color: '#fff' }}
-                        >
-                          Save
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-
                   {visibleTasks.map(task => (
-                    <div key={task.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#091121', padding: 12, borderRadius: 8, marginBottom: 10 }}>
-                      <div>
-                        <div style={{ color: '#E5E7EB' }}>{task.title}</div>
-                        <div style={{ color: '#9CA3AF', fontSize: '0.85rem' }}>{task.due}</div>
+                    <div key={task.id} style={{ marginBottom: 10 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#091121', padding: 12, borderRadius: 8 }}>
+                        <div>
+                          <div style={{ color: '#E5E7EB' }}>{task.title}</div>
+                          <div style={{ color: '#9CA3AF', fontSize: '0.85rem' }}>{task.due}</div>
+                        </div>
+                        <div>
+                          <Button size="sm" onClick={() => handleOpenTask(task)} style={{ backgroundColor: '#fff', color: '#0F172A' }}>
+                            {openedTaskId === task.id ? 'Opened' : 'Open'}
+                          </Button>
+                        </div>
                       </div>
-                      <div>
-                        <Button size="sm" onClick={() => handleOpenTask(task)} style={{ backgroundColor: '#fff', color: '#0F172A' }}>Open</Button>
-                      </div>
+
+                      {openedTaskId === task.id && (
+                        <div className="mt-2 p-3 rounded-lg" style={{ backgroundColor: '#111827', border: '1px solid #1F2937' }}>
+                          <div className="text-sm font-medium mb-2" style={{ color: '#E5E7EB' }}>Edit Opened Task</div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <input
+                              value={openedTaskTitle}
+                              onChange={(event) => setOpenedTaskTitle(event.target.value)}
+                              placeholder="Task title"
+                              className="w-full p-2 rounded"
+                              style={{ backgroundColor: '#0B1220', border: '1px solid #1F2937', color: '#E5E7EB' }}
+                            />
+                            <input
+                              type="date"
+                              value={openedTaskDueDate}
+                              onChange={(event) => setOpenedTaskDueDate(event.target.value)}
+                              className="w-full p-2 rounded"
+                              style={{ backgroundColor: '#0B1220', border: '1px solid #1F2937', color: '#E5E7EB' }}
+                            />
+                          </div>
+                          <div className="mt-3 flex justify-end gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setOpenedTaskId(null)}
+                              style={{ borderColor: '#374151', color: '#E5E7EB' }}
+                            >
+                              Close
+                            </Button>
+                            <Button
+                              size="sm"
+                              onClick={handleSaveOpenedTask}
+                              style={{ backgroundColor: '#6366F1', color: '#fff' }}
+                            >
+                              Save
+                            </Button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
