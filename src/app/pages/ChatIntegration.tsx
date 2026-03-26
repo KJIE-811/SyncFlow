@@ -186,6 +186,7 @@ export function ChatIntegration() {
     | 'review-required-variables'
     | 'grant-permissions'
     | 'test-chat-to-task'
+    | 'select-provider-to-test-area'
     | 'ai-engine-overview'
     | 'ai-auto-parse'
     | 'ai-smart-due-dates'
@@ -286,6 +287,15 @@ export function ChatIntegration() {
         whyItMatters: 'Confirms your connected channel can be used for end-to-end chat-to-task testing.',
         targetSelector: '[data-onboarding="chat-test-button"]',
         fallbackMessage: 'Test button appears after provider connection. Connect first, then continue.',
+      },
+      {
+        id: 'select-provider-to-test-area',
+        action: 'Review Select a Provider to Test area',
+        instruction: 'This chat simulator area will first prompt you to Select a Provider to Test before sending messages.',
+        microcopy: 'If no provider is active, click Test on a connected provider card to activate this panel.',
+        whyItMatters: 'Clarifies where mock chat interactions happen before AI parsing settings are adjusted.',
+        targetSelector: '[data-onboarding="chat-simulator"]',
+        fallbackMessage: 'Chat simulator appears after at least one provider is connected.',
       },
       {
         id: 'ai-engine-overview',
