@@ -20,6 +20,7 @@ export function Settings() {
       | 'data-management'
       | 'data-exports'
       | 'smart-buffers'
+      | 'default-buffer-time'
       | 'danger-zone';
     action: string;
     instruction: string;
@@ -131,6 +132,14 @@ export function Settings() {
       microcopy: 'Combine fixed defaults with learning for best long-term results.',
       targetSelector: '[data-onboarding="smart-buffers"]',
       fallbackMessage: 'Smart Buffers settings are unavailable.',
+    },
+    {
+      id: 'default-buffer-time',
+      action: 'Set Default Buffer Time',
+      instruction: 'Use this dropdown to set the default buffer time for the currently focused task on the dashboard.',
+      microcopy: 'Changing this updates the default buffer shown in Dashboard planning.',
+      targetSelector: '[data-onboarding="default-buffer-time"]',
+      fallbackMessage: 'Default Buffer Time control is unavailable.',
     },
     {
       id: 'danger-zone',
@@ -762,7 +771,7 @@ export function Settings() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="p-4 rounded-lg" style={{ backgroundColor: '#0F172A' }}>
+            <div data-onboarding="default-buffer-time" className="p-4 rounded-lg" style={{ backgroundColor: '#0F172A' }}>
               <label className="text-sm mb-2 block" style={{ color: '#E5E7EB' }}>
                 Default Buffer Time
               </label>
