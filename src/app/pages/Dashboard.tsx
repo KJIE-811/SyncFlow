@@ -246,7 +246,7 @@ export function Dashboard() {
       hour: 'numeric',
       minute: '2-digit',
       hour12: true,
-    })} (+${bufferMinutes}m buffer)`;
+    })} (+${bufferMinutes}minutes buffer)`;
   }, [bufferMinutes, nextUpBaseTime, today]);
 
   const handleAdjustBuffer = () => {
