@@ -234,13 +234,75 @@ export function CalendarIntegration() {
     ];
 
     return [...baseOnboardingSteps, finalProviderStep, ...postConnectionSteps];
-  }, [onboardingProviderChoice]);
+  }, [onboardingProviderChoice, state.calendars]);
+
+  // If a calendar provider is already connected, remove provider selection/connection steps
+  const onboardingStepsFiltered = useMemo(() => {
+    const hasConnectedCalendar = state.calendars.some((c) => c.connected);
+    if (!hasConnectedCalendar) return onboardingSteps;
+    return onboardingSteps.filter((s) => s.id !== 'select-provider' && s.id !== 'grant-permissions');
+  }, [onboardingSteps, state.calendars]);
+
+  // Keep current step consistent when the filtered steps list changes (avoid skipping)
+  const lastOnboardingStepIdRef = useRef<string | null>(null);
+  const pendingPostConnectStepRef = useRef<string | null>(null);
+
+  const applyPendingStepWithRetries = (pendingId: string) => {
+    let attempts = 0;
+    const maxAttempts = 12; // ~2.4s
+    const interval = 200;
+    const timer = window.setInterval(() => {
+      attempts += 1;
+      const targetIndex = onboardingStepsFiltered.findIndex((s) => s.id === pendingId);
+      if (targetIndex !== -1) {
+        setOnboardingStepIndex(targetIndex);
+        updateSpotlightForStep();
+        pendingPostConnectStepRef.current = null;
+        clearInterval(timer);
+        return;
+      }
+      if (attempts >= maxAttempts) {
+        clearInterval(timer);
+        pendingPostConnectStepRef.current = null;
+      }
+    }, interval);
+  };
+
+  useEffect(() => {
+    lastOnboardingStepIdRef.current = onboardingStepsFiltered[onboardingStepIndex]?.id ?? null;
+  }, [onboardingStepIndex]);
+
+  useEffect(() => {
+    const pending = pendingPostConnectStepRef.current;
+    if (pending) {
+      applyPendingStepWithRetries(pending);
+      return;
+    }
+
+    const prevId = lastOnboardingStepIdRef.current;
+    if (!prevId) {
+      setOnboardingStepIndex((prev) => Math.min(prev, Math.max(0, onboardingStepsFiltered.length - 1)));
+      return;
+    }
+    const newIndex = onboardingStepsFiltered.findIndex((s) => s.id === prevId);
+    if (newIndex === -1) {
+      // previous step removed (likely grant-permissions); try to jump to 'date-filter' if present
+      const preferredIndex = onboardingStepsFiltered.findIndex((s) => s.id === 'date-filter');
+      if (preferredIndex !== -1) {
+        setOnboardingStepIndex(preferredIndex);
+      } else {
+        setOnboardingStepIndex((prev) => Math.min(prev, Math.max(0, onboardingStepsFiltered.length - 1)));
+      }
+    } else if (newIndex !== onboardingStepIndex) {
+      setOnboardingStepIndex(newIndex);
+    }
+  }, [onboardingStepsFiltered]);
 
   const activeTaskProvider = getActiveProvider('task');
   const calendarTaskSync = state.calendarTaskSync;
   const activeProviderId = getActiveProvider('calendar');
   const connectedCount = state.calendars.filter(c => c.connected).length;
-  const currentOnboardingStep = onboardingSteps[onboardingStepIndex];
+  const currentOnboardingStep = onboardingStepsFiltered[onboardingStepIndex];
   const passiveOnboardingSteps: OnboardingStepId[] = [
     'sync-frequency',
     'event-types',
@@ -295,7 +357,7 @@ export function CalendarIntegration() {
           : isOnboardingStepComplete(currentOnboardingStep.id) || spotlightTargetMissing
     : false;
 
-  const getStepIndexById = (stepId: OnboardingStepId) => onboardingSteps.findIndex((step) => step.id === stepId);
+  const getStepIndexById = (stepId: OnboardingStepId) => onboardingStepsFiltered.findIndex((step) => step.id === stepId);
 
   const getScrollableAncestors = (element: HTMLElement) => {
     const ancestors: HTMLElement[] = [];
@@ -530,7 +592,7 @@ export function CalendarIntegration() {
 
     waitForElement(currentOnboardingStep.targetSelector, 2600).then((target) => {
       if (cancelled || !target) return;
-      if (onboardingSteps[onboardingStepIndex]?.id !== stepId) return;
+      if (onboardingStepsFiltered[onboardingStepIndex]?.id !== stepId) return;
       updateSpotlightForStep();
     });
 
@@ -547,9 +609,9 @@ export function CalendarIntegration() {
   ]);
 
   useEffect(() => {
-    if (onboardingStepIndex <= onboardingSteps.length - 1) return;
-    setOnboardingStepIndex(Math.max(0, onboardingSteps.length - 1));
-  }, [onboardingStepIndex, onboardingSteps.length]);
+    if (onboardingStepIndex <= onboardingStepsFiltered.length - 1) return;
+    setOnboardingStepIndex(Math.max(0, onboardingStepsFiltered.length - 1));
+  }, [onboardingStepIndex, onboardingStepsFiltered.length]);
 
   useEffect(() => {
     const hasConnectedCalendar = state.calendars.some((calendar) => calendar.connected);
@@ -1083,13 +1145,8 @@ export function CalendarIntegration() {
         setSelectedProvider(null);
         setConnectionError(null);
         if (showOnboarding && currentOnboardingStep?.id === 'grant-permissions') {
-          const nextStepIndex = getStepIndexById('date-filter');
-          if (nextStepIndex !== -1) {
-            setOnboardingStepIndex(nextStepIndex);
-          } else {
-            setShowOnboarding(false);
-            setHasUserRequestedTutorial(false);
-          }
+          // Defer selecting the next onboarding step until filtered steps update
+          pendingPostConnectStepRef.current = 'date-filter';
         }
         toast.dismiss(loadingToastId);
         toast.success('Calendar Connected', {
@@ -1115,7 +1172,7 @@ export function CalendarIntegration() {
     if (!canAdvanceOnboardingStep) return;
 
     const nextIndex = onboardingStepIndex + 1;
-    if (nextIndex >= onboardingSteps.length) {
+    if (nextIndex >= onboardingStepsFiltered.length) {
       setShowOnboarding(false);
       return;
     }
@@ -1252,7 +1309,7 @@ export function CalendarIntegration() {
             }}
           >
             <div className="text-xs uppercase tracking-wide" style={{ color: '#22D3EE' }}>
-              Guided Setup • Step {onboardingStepIndex + 1} of {onboardingSteps.length}
+              Guided Setup • Step {onboardingStepIndex + 1} of {onboardingStepsFiltered.length}
             </div>
             <p className="mt-2 font-semibold" style={{ color: '#E5E7EB' }}>{currentOnboardingStep.action}</p>
             <p className="text-sm mt-2" style={{ color: '#CBD5E1' }}>
@@ -1295,7 +1352,7 @@ export function CalendarIntegration() {
                     disabled={!canAdvanceOnboardingStep}
                     style={{ backgroundColor: '#6366F1', color: '#fff' }}
                   >
-                    {onboardingStepIndex === onboardingSteps.length - 1 ? 'Finish' : 'Next'}
+                    {onboardingStepIndex === onboardingStepsFiltered.length - 1 ? 'Finish' : 'Next'}
                   </Button>
                 ) : null}
               </div>

@@ -22,6 +22,7 @@ interface RippleEffectState {
 interface AIContextType {
   chatMessages: ChatMessage[];
   addChatMessage: (message: Omit<ChatMessage, 'id' | 'intent'>) => Intent;
+  syncCommunicationFromHistory: (history: Array<{ text: string; sender: 'user' | 'ai'; timestamp: string; source?: string }>) => void;
   communicationSummaries: CommunicationSummary[];
   refreshSummaries: () => void;
   rippleEffect: RippleEffectState;
@@ -124,6 +125,42 @@ export function AIProvider({ children }: { children: ReactNode }) {
     return intent;
   };
 
+  const syncCommunicationFromHistory = (
+    history: Array<{ text: string; sender: 'user' | 'ai'; timestamp: string; source?: string }>
+  ) => {
+    const normalized = history
+      .filter((msg) => msg.sender === 'user' && typeof msg.source === 'string' && msg.source.length > 0)
+      .map((msg) => {
+        const intent = aiEngine.analyzeIntent(msg.text, 'You');
+        return {
+          id: Date.now() + Math.floor(Math.random() * 1000),
+          text: msg.text,
+          sender: 'You',
+          timestamp: msg.timestamp,
+          source: msg.source as string,
+          intent,
+          autoTaskCreated: autoCreateTasks && (intent.type === 'task' || intent.type === 'meeting') && intent.confidence > 0.7,
+        } as ChatMessage;
+      });
+
+    setChatMessages(normalized);
+
+    if (normalized.length === 0) {
+      setCommunicationSummaries([]);
+      return;
+    }
+
+    const summaries = aiEngine.generateCommunicationSummary(
+      normalized.map((msg) => ({
+        text: msg.text,
+        sender: msg.sender,
+        timestamp: msg.timestamp,
+        source: msg.source,
+      }))
+    );
+    setCommunicationSummaries(summaries);
+  };
+
   const refreshSummaries = () => {
     const summaries = aiEngine.generateCommunicationSummary(
       chatMessages.map(msg => ({
@@ -138,9 +175,11 @@ export function AIProvider({ children }: { children: ReactNode }) {
 
   // Auto-refresh summaries when messages change
   useEffect(() => {
-    if (chatMessages.length > 0) {
-      refreshSummaries();
+    if (chatMessages.length === 0) {
+      setCommunicationSummaries([]);
+      return;
     }
+    refreshSummaries();
   }, [chatMessages]);
 
   const triggerRippleEffect = (
@@ -291,6 +330,7 @@ export function AIProvider({ children }: { children: ReactNode }) {
       value={{
         chatMessages,
         addChatMessage,
+        syncCommunicationFromHistory,
         communicationSummaries,
         refreshSummaries,
         rippleEffect,

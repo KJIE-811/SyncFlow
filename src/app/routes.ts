@@ -1,4 +1,4 @@
-import { createHashRouter, redirect } from "react-router";
+import { createBrowserRouter, redirect } from "react-router";
 import { ProtectedLayout } from "./components/ProtectedLayout";
 import { Dashboard } from "./pages/Dashboard";
 import { CalendarIntegration } from "./pages/CalendarIntegration";
@@ -13,7 +13,7 @@ import { ForgotPassword } from "./pages/ForgotPassword";
 import { RegisterSuccessLoading } from "./pages/RegisterSuccessLoading";
 import { ReportPreview } from "./pages/ReportPreview";
 
-export const router = createHashRouter([
+export const router = createBrowserRouter([
   {
     path: "/login",
     Component: Login,
@@ -48,4 +48,4 @@ export const router = createHashRouter([
     path: "*",
     loader: () => redirect("/"),
   },
-]);
+], { basename: '/SyncFlow' });

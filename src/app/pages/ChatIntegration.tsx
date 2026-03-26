@@ -206,8 +206,9 @@ const resolveDueDateInput = (rawDue: string) => {
 };
 
 const buildAppHashRouteUrl = (route: string) => {
-  const baseUrl = window.location.href.split('#')[0];
-  return `${baseUrl}#${route}`;
+  const viteBase = (import.meta as any).env?.BASE_URL ?? '/SyncFlow/';
+  const baseNoSlash = viteBase.endsWith('/') ? viteBase.slice(0, -1) : viteBase;
+  return `${window.location.origin}${baseNoSlash}${route}`;
 };
 
 export function ChatIntegration() {
@@ -238,7 +239,7 @@ export function ChatIntegration() {
   };
 
   const { state, connectChat, disconnectChat, canConnect, getActiveProvider } = useIntegrations();
-  const { addChatMessage, autoCreateTasks, toggleAutoCreateTasks } = useAI();
+  const { addChatMessage, autoCreateTasks, toggleAutoCreateTasks, syncCommunicationFromHistory } = useAI();
   const { user } = useAuth();
   const [selectedProvider, setSelectedProvider] = useState<string | null>(null);
   const [activeChat, setActiveChat] = useState<string | null>(null);
@@ -413,15 +414,58 @@ export function ChatIntegration() {
       },
       ...postConnectionSteps,
     ];
-  }, [onboardingProviderChoice]);
+  }, [onboardingProviderChoice, state.chats]);
+
+  // If a chat provider is already connected, remove provider selection/connection steps
+  const onboardingStepsFiltered = useMemo(() => {
+    const hasConnectedChat = state.chats.some((c) => c.connected);
+    if (!hasConnectedChat) return onboardingSteps;
+    return onboardingSteps.filter((s) => s.id !== 'select-provider' && s.id !== 'review-required-variables' && s.id !== 'grant-permissions');
+  }, [onboardingSteps, state.chats]);
+
+  // Keep current step consistent when the filtered steps list changes (avoid skipping)
+  const lastOnboardingStepIdRef = useRef<string | null>(null);
+  const pendingPostConnectStepRef = useRef<string | null>(null);
+
+  // remember the current step id whenever the index changes
+  useEffect(() => {
+    lastOnboardingStepIdRef.current = onboardingStepsFiltered[onboardingStepIndex]?.id ?? null;
+  }, [onboardingStepIndex]);
+
+  // when the filtered steps list changes, remap to the previous step id if possible
+  useEffect(() => {
+    // If a pending post-connect target exists, prefer that (it was set by the connect handler)
+    const pending = pendingPostConnectStepRef.current;
+    if (pending) {
+      const targetIndex = onboardingStepsFiltered.findIndex((s) => s.id === pending);
+      if (targetIndex !== -1) {
+        setOnboardingStepIndex(targetIndex);
+        pendingPostConnectStepRef.current = null;
+        return;
+      }
+      // otherwise fallthrough to remapping logic
+    }
+
+    const prevId = lastOnboardingStepIdRef.current;
+    if (!prevId) {
+      setOnboardingStepIndex((prev) => Math.min(prev, Math.max(0, onboardingStepsFiltered.length - 1)));
+      return;
+    }
+    const newIndex = onboardingStepsFiltered.findIndex((s) => s.id === prevId);
+    if (newIndex === -1) {
+      setOnboardingStepIndex((prev) => Math.min(prev, Math.max(0, onboardingStepsFiltered.length - 1)));
+    } else if (newIndex !== onboardingStepIndex) {
+      setOnboardingStepIndex(newIndex);
+    }
+  }, [onboardingStepsFiltered]);
 
   const connectedProviders = state.chats.filter(c => c.connected);
   const connectedCount = connectedProviders.length;
   const activeProviderId = getActiveProvider('chat');
-  const currentOnboardingStep = onboardingSteps[onboardingStepIndex];
+  const currentOnboardingStep = onboardingStepsFiltered[onboardingStepIndex];
   const isProviderSelectionStep = currentOnboardingStep?.id === 'select-provider';
 
-  const getStepIndexById = (stepId: OnboardingStepId) => onboardingSteps.findIndex((step) => step.id === stepId);
+  const getStepIndexById = (stepId: OnboardingStepId) => onboardingStepsFiltered.findIndex((step) => step.id === stepId);
 
   const isOnboardingStepComplete = (stepId: OnboardingStepId) => {
     switch (stepId) {
@@ -695,10 +739,8 @@ export function ChatIntegration() {
         });
 
         if (showOnboarding && currentOnboardingStep?.id === 'grant-permissions') {
-          const postConnectIndex = getStepIndexById('test-chat-to-task');
-          if (postConnectIndex !== -1) {
-            setOnboardingStepIndex(postConnectIndex);
-          }
+          // Defer selecting the next onboarding step until the filtered steps update
+          pendingPostConnectStepRef.current = 'test-chat-to-task';
         }
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Connection failed. Please try again.';
@@ -717,7 +759,7 @@ export function ChatIntegration() {
   const goToNextOnboardingStep = () => {
     if (!currentOnboardingStep || !canAdvanceOnboardingStep) return;
     const nextIndex = onboardingStepIndex + 1;
-    if (nextIndex >= onboardingSteps.length) {
+      if (nextIndex >= onboardingStepsFiltered.length) {
       setShowOnboarding(false);
       setHasUserRequestedTutorial(false);
       setOnboardingProviderChoice(null);
@@ -745,7 +787,7 @@ export function ChatIntegration() {
 
     if (showOnboarding && currentOnboardingStep?.id === 'test-chat-to-task') {
       const nextIndex = onboardingStepIndex + 1;
-      if (nextIndex < onboardingSteps.length) {
+        if (nextIndex < onboardingStepsFiltered.length) {
         setOnboardingStepIndex(nextIndex);
       }
     }
@@ -759,6 +801,7 @@ export function ChatIntegration() {
       clearCreatedKeyPointIds(user);
       clearChatSummaryKeyPoints(user);
       setMessages(createInitialChatMessages());
+      syncCommunicationFromHistory([]);
       setSimulatedTasks(defaultSimulatedTasks);
       toast.success('Chat Provider Disconnected', {
         description: 'You can now connect a different chat provider.',
@@ -796,6 +839,8 @@ export function ChatIntegration() {
       messages,
       simulatedTasks,
     });
+
+    syncCommunicationFromHistory(messages);
   }, [activeChat, messages, simulatedTasks, hasLoadedPersistedChatState, user?.id, user?.email]);
 
   useEffect(() => {
@@ -806,9 +851,9 @@ export function ChatIntegration() {
   }, [state.chats, hasUserRequestedTutorial, onboardingProviderChoice]);
 
   useEffect(() => {
-    if (onboardingStepIndex <= onboardingSteps.length - 1) return;
-    setOnboardingStepIndex(Math.max(0, onboardingSteps.length - 1));
-  }, [onboardingStepIndex, onboardingSteps.length]);
+    if (onboardingStepIndex <= onboardingStepsFiltered.length - 1) return;
+    setOnboardingStepIndex(Math.max(0, onboardingStepsFiltered.length - 1));
+  }, [onboardingStepIndex, onboardingStepsFiltered.length]);
 
   useEffect(() => {
     updateSpotlightForStep();
@@ -1157,7 +1202,7 @@ export function ChatIntegration() {
             }}
           >
             <div className="text-xs uppercase tracking-wide" style={{ color: '#22D3EE' }}>
-              Guided Setup • Step {onboardingStepIndex + 1} of {onboardingSteps.length}
+              Guided Setup • Step {onboardingStepIndex + 1} of {onboardingStepsFiltered.length}
             </div>
             <p className="mt-2 font-semibold" style={{ color: '#E5E7EB' }}>{currentOnboardingStep.action}</p>
             <p className="text-sm mt-2" style={{ color: '#CBD5E1' }}>
@@ -1203,7 +1248,7 @@ export function ChatIntegration() {
                     disabled={!canAdvanceOnboardingStep}
                     style={{ backgroundColor: '#6366F1', color: '#fff' }}
                   >
-                    {onboardingStepIndex === onboardingSteps.length - 1 ? 'Finish' : 'Next'}
+                    {onboardingStepIndex === onboardingStepsFiltered.length - 1 ? 'Finish' : 'Next'}
                   </Button>
                 )}
               </div>

@@ -132,7 +132,7 @@ export function TasksIntegration() {
 
   const onboardingSteps = useMemo<OnboardingStep[]>(() => {
     const providerName = onboardingProviderChoice
-      ? taskProviderInfo.find((provider) => provider.id === onboardingProviderChoice)?.name || 'selected provider'
+          ? taskProviderInfo.find((provider) => provider.id === onboardingProviderChoice)?.name || 'selected provider'
       : 'selected provider';
 
     const hasConnectedCalendar = state.calendars.some((calendar) => calendar.connected);
@@ -249,17 +249,56 @@ export function TasksIntegration() {
       ...integrationSteps,
       ...taskCreationSteps,
     ];
-  }, [onboardingProviderChoice, state.calendars]);
+  }, [onboardingProviderChoice, state.calendars, state.tasks]);
+
+  // If a task provider is already connected, remove provider selection/connection steps
+  const onboardingStepsFiltered = useMemo(() => {
+    const hasConnectedTask = state.tasks.some((t) => t.connected);
+    if (!hasConnectedTask) return onboardingSteps;
+    return onboardingSteps.filter((s) => s.id !== 'select-provider' && s.id !== 'grant-permissions');
+  }, [onboardingSteps, state.tasks]);
+
+  // Keep current step consistent when the filtered steps list changes (avoid skipping)
+  const lastOnboardingStepIdRef = useRef<string | null>(null);
+  const pendingPostConnectStepRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    lastOnboardingStepIdRef.current = onboardingStepsFiltered[onboardingStepIndex]?.id ?? null;
+  }, [onboardingStepIndex]);
+
+  useEffect(() => {
+    const pending = pendingPostConnectStepRef.current;
+    if (pending) {
+      const targetIndex = onboardingStepsFiltered.findIndex((s) => s.id === pending);
+      if (targetIndex !== -1) {
+        setOnboardingStepIndex(targetIndex);
+        pendingPostConnectStepRef.current = null;
+        return;
+      }
+    }
+
+    const prevId = lastOnboardingStepIdRef.current;
+    if (!prevId) {
+      setOnboardingStepIndex((prev) => Math.min(prev, Math.max(0, onboardingStepsFiltered.length - 1)));
+      return;
+    }
+    const newIndex = onboardingStepsFiltered.findIndex((s) => s.id === prevId);
+    if (newIndex === -1) {
+      setOnboardingStepIndex((prev) => Math.min(prev, Math.max(0, onboardingStepsFiltered.length - 1)));
+    } else if (newIndex !== onboardingStepIndex) {
+      setOnboardingStepIndex(newIndex);
+    }
+  }, [onboardingStepsFiltered]);
 
   const connectedCount = state.tasks.filter(t => t.connected).length;
   const totalTasks = state.tasks.reduce((sum, t) => sum + (t.taskCount || 0), 0);
   const activeProviderId = getActiveProvider('task');
   const activeCalendarId = getActiveProvider('calendar');
   const calendarTaskSync = state.calendarTaskSync;
-  const currentOnboardingStep = onboardingSteps[onboardingStepIndex];
+  const currentOnboardingStep = onboardingStepsFiltered[onboardingStepIndex];
   const isProviderSelectionStep = currentOnboardingStep?.id === 'select-provider';
 
-  const getStepIndexById = (stepId: OnboardingStepId) => onboardingSteps.findIndex((step) => step.id === stepId);
+  const getStepIndexById = (stepId: OnboardingStepId) => onboardingStepsFiltered.findIndex((step) => step.id === stepId);
 
   const isOnboardingStepComplete = (stepId: OnboardingStepId) => {
     switch (stepId) {
@@ -526,10 +565,8 @@ export function TasksIntegration() {
         });
 
         if (showOnboarding && currentOnboardingStep?.id === 'grant-permissions') {
-          const integrationStepIndex = getStepIndexById('integration-overview');
-          if (integrationStepIndex !== -1) {
-            setOnboardingStepIndex(integrationStepIndex);
-          }
+          // Defer selecting the next onboarding step until filtered steps update
+          pendingPostConnectStepRef.current = 'integration-overview';
         }
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Connection failed. Please try again.';
@@ -548,7 +585,7 @@ export function TasksIntegration() {
   const goToNextOnboardingStep = () => {
     if (!currentOnboardingStep || !canAdvanceOnboardingStep) return;
     const nextIndex = onboardingStepIndex + 1;
-    if (nextIndex >= onboardingSteps.length) {
+    if (nextIndex >= onboardingStepsFiltered.length) {
       setShowOnboarding(false);
       return;
     }
@@ -587,9 +624,9 @@ export function TasksIntegration() {
   }, [state.tasks, hasUserRequestedTutorial, onboardingProviderChoice]);
 
   useEffect(() => {
-    if (onboardingStepIndex <= onboardingSteps.length - 1) return;
-    setOnboardingStepIndex(Math.max(0, onboardingSteps.length - 1));
-  }, [onboardingStepIndex, onboardingSteps.length]);
+    if (onboardingStepIndex <= onboardingStepsFiltered.length - 1) return;
+    setOnboardingStepIndex(Math.max(0, onboardingStepsFiltered.length - 1));
+  }, [onboardingStepIndex, onboardingStepsFiltered.length]);
 
   useEffect(() => {
     updateSpotlightForStep();
@@ -887,7 +924,7 @@ export function TasksIntegration() {
             }}
           >
             <div className="text-xs uppercase tracking-wide" style={{ color: '#22D3EE' }}>
-              Guided Setup • Step {onboardingStepIndex + 1} of {onboardingSteps.length}
+              Guided Setup • Step {onboardingStepIndex + 1} of {onboardingStepsFiltered.length}
             </div>
             <p className="mt-2 font-semibold" style={{ color: '#E5E7EB' }}>{currentOnboardingStep.action}</p>
             <p className="text-sm mt-2" style={{ color: '#CBD5E1' }}>
@@ -933,7 +970,7 @@ export function TasksIntegration() {
                     disabled={!canAdvanceOnboardingStep}
                     style={{ backgroundColor: '#6366F1', color: '#fff' }}
                   >
-                    {onboardingStepIndex === onboardingSteps.length - 1 ? 'Finish' : 'Next'}
+                    {onboardingStepIndex === onboardingStepsFiltered.length - 1 ? 'Finish' : 'Next'}
                   </Button>
                 )}
               </div>
