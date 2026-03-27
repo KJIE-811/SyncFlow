@@ -217,8 +217,9 @@ export function ChatIntegration() {
   type OnboardingPlacement = 'top' | 'bottom' | 'left' | 'right';
   type OnboardingStepId =
     | 'select-provider'
-    | 'review-required-variables'
     | 'scan-qr-connect'
+    | 'review-required-variables'
+    | 'choose-connection-method'
     | 'grant-permissions'
     | 'test-chat-to-task'
     | 'select-provider-to-test-area'
@@ -293,9 +294,9 @@ export function ChatIntegration() {
       : 'selected provider';
 
     const requiredVariableGuidance = onboardingProviderChoice === 'whatsapp'
-      ? 'Required values: Access Token and Phone Number ID.'
+      ? 'Manual fields (optional): Access Token and Phone Number ID.'
       : onboardingProviderChoice === 'telegram'
-        ? 'Required value: Bot Token.'
+        ? 'Manual field (optional): Bot Token.'
         : onboardingProviderChoice === 'messenger'
           ? 'Required value: Page Access Token.'
           : 'Choose a provider to view its required fields.';
@@ -397,16 +398,6 @@ export function ChatIntegration() {
 
     return [
       ...baseOnboardingSteps,
-      {
-        id: 'review-required-variables',
-        action: `Review ${providerName} required variables`,
-        instruction: `Before authorizing, fill the required credential fields for ${providerName}. ${requiredVariableGuidance}`,
-        microcopy: 'Only required fields are needed to enable Connect.',
-        whyItMatters: 'Prevents failed authorization caused by missing credentials.',
-        targetSelector: requiredFieldSelector,
-        requiresModal: true,
-        fallbackMessage: 'Required fields are not visible yet. Reopen the provider modal and retry.',
-      },
       ...(supportsQrConnect
         ? [
             {
@@ -422,12 +413,42 @@ export function ChatIntegration() {
           ]
         : []),
       {
+        id: 'review-required-variables',
+        action: `Review ${providerName} manual credentials`,
+        instruction: `Manual credential connection is available for ${providerName}. ${requiredVariableGuidance}`,
+        microcopy: supportsQrConnect
+          ? 'You can still proceed with QR-only connection if preferred.'
+          : 'Only required fields are needed to enable Connect.',
+        whyItMatters: 'Explains the manual fallback path if QR scan is unavailable.',
+        targetSelector: requiredFieldSelector,
+        requiresModal: true,
+        fallbackMessage: 'Required fields are not visible yet. Reopen the provider modal and retry.',
+      },
+      ...(supportsQrConnect
+        ? [
+            {
+              id: 'choose-connection-method' as const,
+              action: `Choose ${providerName} connection method`,
+              instruction: 'Choose either QR scan or manual credentials. Manual entry is optional.',
+              microcopy: 'Use the option that matches your setup preference.',
+              whyItMatters: 'Ensures users understand both supported connection paths.',
+              targetSelector: '[data-onboarding="connect-choice"]',
+              requiresModal: true,
+              fallbackMessage: 'Connection method choices are not visible. Reopen the provider modal and retry.',
+            },
+          ]
+        : []),
+      {
         id: 'grant-permissions',
-        action: `Authorize ${providerName}`,
-        instruction: `Complete ${providerName} credential setup and connect the channel.`,
-        microcopy: 'Verify required tokens before connecting.',
+        action: `Connect ${providerName}`,
+        instruction: supportsQrConnect
+          ? `Connect ${providerName} using your selected method (QR scan or manual credentials).`
+          : `Complete ${providerName} credential setup and connect the channel.`,
+        microcopy: supportsQrConnect
+          ? 'Either method continues the tutorial after successful connection.'
+          : 'Verify required tokens before connecting.',
         whyItMatters: 'Finalizes secure message ingestion for the selected channel.',
-        targetSelector: '[data-onboarding="modal-authorize"]',
+        targetSelector: supportsQrConnect ? '[data-onboarding="connect-choice"]' : '[data-onboarding="modal-authorize"]',
         requiresModal: true,
         fallbackMessage: 'Connect action is unavailable. Reopen the provider modal and retry.',
       },
@@ -493,6 +514,8 @@ export function ChatIntegration() {
       case 'review-required-variables':
         return onboardingProviderChoice !== null;
       case 'scan-qr-connect':
+        return onboardingProviderChoice === 'whatsapp' || onboardingProviderChoice === 'telegram';
+      case 'choose-connection-method':
         return onboardingProviderChoice === 'whatsapp' || onboardingProviderChoice === 'telegram';
       case 'grant-permissions':
         return connectionStepState.permissionsGranted || activeProviderId !== null;
@@ -759,7 +782,7 @@ export function ChatIntegration() {
           duration: 3500,
         });
 
-        if (showOnboarding && currentOnboardingStep?.id === 'grant-permissions') {
+        if (showOnboarding) {
           // Defer selecting the next onboarding step until the filtered steps update
           pendingPostConnectStepRef.current = 'test-chat-to-task';
         }

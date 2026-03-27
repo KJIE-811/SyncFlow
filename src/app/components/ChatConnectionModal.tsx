@@ -101,6 +101,27 @@ export function ChatConnectionModal({
 
         {showQrConnect && (
           <div
+            data-onboarding="connect-choice"
+            className="rounded-lg p-3"
+            style={{ backgroundColor: '#6366F120', border: '1px solid #6366F1' }}
+          >
+            <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: '#A5B4FC' }}>
+              Choose Connection Method
+            </p>
+            <p className="mt-1 text-sm" style={{ color: '#E5E7EB' }}>
+              1. Use QR scan and click the mock scanned button.
+            </p>
+            <p className="text-sm" style={{ color: '#E5E7EB' }}>
+              2. Enter credentials manually and connect.
+            </p>
+            <p className="mt-1 text-xs" style={{ color: '#9CA3AF' }}>
+              Manual credential entry is optional for WhatsApp and Telegram in this flow.
+            </p>
+          </div>
+        )}
+
+        {showQrConnect && (
+          <div
             data-onboarding="qr-connect-panel"
             className="rounded-lg p-4 space-y-3"
             style={{ backgroundColor: '#0F172A', border: '1px solid #374151' }}
@@ -294,7 +315,7 @@ export function ChatConnectionModal({
               )
             }
           >
-            {isConnecting ? 'Connecting...' : `Connect ${providerName}`}
+            {isConnecting ? 'Connecting...' : showQrConnect ? `Connect ${providerName} with Credentials` : `Connect ${providerName}`}
           </Button>
         </div>
 
