@@ -1578,7 +1578,7 @@ export function ChatIntegration() {
               <div data-onboarding="ai-quick-commands" className="pt-4 space-y-2">
                 <h4 className="text-sm font-medium" style={{ color: '#E5E7EB' }}>Quick Commands</h4>
                 <div className="space-y-1 text-xs" style={{ color: '#9CA3AF' }}>
-                  <p><code className="px-1 py-0.5 rounded" style={{ backgroundColor: '#0F172A' }}>/task [title] /priority [high|medium|low] /due [tomorrow|dd/mm/yyyy]</code></p>
+                  <p><code className="px-1 py-0.5 rounded" style={{ backgroundColor: '#0F172A' }}>/task</code> - Create Task</p>
                   <p><code className="px-1 py-0.5 rounded" style={{ backgroundColor: '#0F172A' }}>/calendar</code> - Retrieve calendar events</p>
                   <p><code className="px-1 py-0.5 rounded" style={{ backgroundColor: '#0F172A' }}>/events</code> - Retrieve tasks from task list</p>
                 </div>
