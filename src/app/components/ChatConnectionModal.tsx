@@ -24,8 +24,8 @@ export function ChatConnectionModal({
   connectError = null,
 }: ChatConnectionModalProps) {
   const requiredFieldGuidance: Record<string, string[]> = {
-    whatsapp: ['Access Token', 'Phone Number ID'],
-    telegram: ['Bot Token'],
+    whatsapp: ['QR Code Scan'],
+    telegram: ['QR Code Scan'],
     messenger: ['Page Access Token'],
   };
 
@@ -42,6 +42,7 @@ export function ChatConnectionModal({
   const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(qrConnectPayload)}`;
 
   const handleConnect = () => {
+    if (showQrConnect) return;
     onConnect(credentials);
   };
 
@@ -83,7 +84,9 @@ export function ChatConnectionModal({
         <DialogHeader>
           <DialogTitle style={{ color: '#E5E7EB' }}>Configure {providerName}</DialogTitle>
           <DialogDescription style={{ color: '#9CA3AF' }}>
-            Enter your API credentials to enable chat-to-task conversion
+            {showQrConnect
+              ? 'Scan QR code to connect and enable chat-to-task conversion'
+              : 'Enter your API credentials to enable chat-to-task conversion'}
           </DialogDescription>
         </DialogHeader>
 
@@ -98,27 +101,6 @@ export function ChatConnectionModal({
             {(requiredFieldGuidance[providerId] || []).join(' and ')}
           </p>
         </div>
-
-        {showQrConnect && (
-          <div
-            data-onboarding="connect-choice"
-            className="rounded-lg p-3"
-            style={{ backgroundColor: '#6366F120', border: '1px solid #6366F1' }}
-          >
-            <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: '#A5B4FC' }}>
-              Choose Connection Method
-            </p>
-            <p className="mt-1 text-sm" style={{ color: '#E5E7EB' }}>
-              1. Use QR scan and click the mock scanned button.
-            </p>
-            <p className="text-sm" style={{ color: '#E5E7EB' }}>
-              2. Enter credentials manually and connect.
-            </p>
-            <p className="mt-1 text-xs" style={{ color: '#9CA3AF' }}>
-              Manual credential entry is optional for WhatsApp and Telegram in this flow.
-            </p>
-          </div>
-        )}
 
         {showQrConnect && (
           <div
@@ -150,6 +132,9 @@ export function ChatConnectionModal({
                 <p className="text-xs" style={{ color: '#9CA3AF' }}>
                   This is a mock QR connection flow for demo and testing.
                 </p>
+                <p className="text-xs" style={{ color: '#9CA3AF' }}>
+                  QR scan is the only supported connection method for {providerName} in this screen.
+                </p>
                 <Button
                   data-onboarding="qr-mock-connect"
                   type="button"
@@ -166,158 +151,62 @@ export function ChatConnectionModal({
           </div>
         )}
 
-        <div className="space-y-4" data-onboarding="modal-credentials">
-          {/* WhatsApp Configuration */}
-          {providerId === 'whatsapp' && (
-            <>
-              <div className="p-2 rounded-lg text-xs" style={{ backgroundColor: '#6366F120', color: '#22D3EE' }}>
-                Get credentials from Meta for Developers.
-              </div>
-
-              <div data-onboarding="required-field-whatsapp">
-                <Label style={{ color: '#E5E7EB' }}>Access Token</Label>
-                <Input
-                  type="password"
-                  placeholder="EAAxxxxxxxxxx..."
-                  value={credentials.apiToken}
-                  onChange={(e) => setCredentials({ ...credentials, apiToken: e.target.value })}
-                  className="mt-1"
-                  style={{ backgroundColor: '#0F172A', borderColor: '#374151', color: '#E5E7EB' }}
-                />
-              </div>
-
-              <div data-onboarding="required-field-whatsapp">
-                <Label style={{ color: '#E5E7EB' }}>Phone Number ID</Label>
-                <Input
-                  placeholder="1234567890123456"
-                  value={credentials.phoneNumberId}
-                  onChange={(e) => setCredentials({ ...credentials, phoneNumberId: e.target.value })}
-                  className="mt-1"
-                  style={{ backgroundColor: '#0F172A', borderColor: '#374151', color: '#E5E7EB' }}
-                />
-              </div>
-
-              <div>
-                <Label style={{ color: '#E5E7EB' }}>Webhook URL</Label>
-                <Input
-                  placeholder="https://your-domain.com/webhook"
-                  value={credentials.webhookUrl}
-                  onChange={(e) => setCredentials({ ...credentials, webhookUrl: e.target.value })}
-                  className="mt-1"
-                  style={{ backgroundColor: '#0F172A', borderColor: '#374151', color: '#E5E7EB' }}
-                />
-              </div>
-
-              <div>
-                <Label style={{ color: '#E5E7EB' }}>Verify Token</Label>
-                <Input
-                  placeholder="Your verification token"
-                  value={credentials.verifyToken}
-                  onChange={(e) => setCredentials({ ...credentials, verifyToken: e.target.value })}
-                  className="mt-1"
-                  style={{ backgroundColor: '#0F172A', borderColor: '#374151', color: '#E5E7EB' }}
-                />
-              </div>
-            </>
-          )}
-
-          {/* Telegram Configuration */}
-          {providerId === 'telegram' && (
-            <>
-              <div className="p-2 rounded-lg text-xs" style={{ backgroundColor: '#6366F120', color: '#22D3EE' }}>
-                Create a bot with @BotFather to get your token.
-              </div>
-
-              <div data-onboarding="required-field-telegram">
-                <Label style={{ color: '#E5E7EB' }}>Bot Token</Label>
-                <Input
-                  type="password"
-                  placeholder="1234567890:ABCdefGHIjklMNOpqrsTUVwxyz"
-                  value={credentials.botToken}
-                  onChange={(e) => setCredentials({ ...credentials, botToken: e.target.value })}
-                  className="mt-1"
-                  style={{ backgroundColor: '#0F172A', borderColor: '#374151', color: '#E5E7EB' }}
-                />
-              </div>
-
-              <div>
-                <Label style={{ color: '#E5E7EB' }}>Webhook URL (Optional)</Label>
-                <Input
-                  placeholder="https://your-domain.com/telegram-webhook"
-                  value={credentials.webhookUrl}
-                  onChange={(e) => setCredentials({ ...credentials, webhookUrl: e.target.value })}
-                  className="mt-1"
-                  style={{ backgroundColor: '#0F172A', borderColor: '#374151', color: '#E5E7EB' }}
-                />
-                <p className="text-xs mt-1" style={{ color: '#9CA3AF' }}>
-                  Leave empty to use long polling
-                </p>
-              </div>
-            </>
-          )}
-
+        {!showQrConnect && (
+          <div className="space-y-4" data-onboarding="modal-credentials">
           {/* Messenger Configuration */}
-          {providerId === 'messenger' && (
-            <>
-              <div className="p-2 rounded-lg text-xs" style={{ backgroundColor: '#6366F120', color: '#22D3EE' }}>
-                Get credentials from Meta for Developers.
-              </div>
+            {providerId === 'messenger' && (
+              <>
+                <div className="p-2 rounded-lg text-xs" style={{ backgroundColor: '#6366F120', color: '#22D3EE' }}>
+                  Get credentials from Meta for Developers.
+                </div>
 
-              <div data-onboarding="required-field-messenger">
-                <Label style={{ color: '#E5E7EB' }}>Page Access Token</Label>
-                <Input
-                  type="password"
-                  placeholder="EAAxxxxxxxxxx..."
-                  value={credentials.apiToken}
-                  onChange={(e) => setCredentials({ ...credentials, apiToken: e.target.value })}
-                  className="mt-1"
-                  style={{ backgroundColor: '#0F172A', borderColor: '#374151', color: '#E5E7EB' }}
-                />
-              </div>
+                <div data-onboarding="required-field-messenger">
+                  <Label style={{ color: '#E5E7EB' }}>Page Access Token</Label>
+                  <Input
+                    type="password"
+                    placeholder="EAAxxxxxxxxxx..."
+                    value={credentials.apiToken}
+                    onChange={(e) => setCredentials({ ...credentials, apiToken: e.target.value })}
+                    className="mt-1"
+                    style={{ backgroundColor: '#0F172A', borderColor: '#374151', color: '#E5E7EB' }}
+                  />
+                </div>
 
-              <div>
-                <Label style={{ color: '#E5E7EB' }}>Verify Token</Label>
-                <Input
-                  placeholder="Your verification token"
-                  value={credentials.verifyToken}
-                  onChange={(e) => setCredentials({ ...credentials, verifyToken: e.target.value })}
-                  className="mt-1"
-                  style={{ backgroundColor: '#0F172A', borderColor: '#374151', color: '#E5E7EB' }}
-                />
-              </div>
+                <div>
+                  <Label style={{ color: '#E5E7EB' }}>Verify Token</Label>
+                  <Input
+                    placeholder="Your verification token"
+                    value={credentials.verifyToken}
+                    onChange={(e) => setCredentials({ ...credentials, verifyToken: e.target.value })}
+                    className="mt-1"
+                    style={{ backgroundColor: '#0F172A', borderColor: '#374151', color: '#E5E7EB' }}
+                  />
+                </div>
 
-              <div>
-                <Label style={{ color: '#E5E7EB' }}>Webhook URL</Label>
-                <Input
-                  placeholder="https://your-domain.com/messenger-webhook"
-                  value={credentials.webhookUrl}
-                  onChange={(e) => setCredentials({ ...credentials, webhookUrl: e.target.value })}
-                  className="mt-1"
-                  style={{ backgroundColor: '#0F172A', borderColor: '#374151', color: '#E5E7EB' }}
-                />
-              </div>
-            </>
-          )}
+                <div>
+                  <Label style={{ color: '#E5E7EB' }}>Webhook URL</Label>
+                  <Input
+                    placeholder="https://your-domain.com/messenger-webhook"
+                    value={credentials.webhookUrl}
+                    onChange={(e) => setCredentials({ ...credentials, webhookUrl: e.target.value })}
+                    className="mt-1"
+                    style={{ backgroundColor: '#0F172A', borderColor: '#374151', color: '#E5E7EB' }}
+                  />
+                </div>
+              </>
+            )}
 
-          <Button 
-            data-onboarding="modal-authorize"
-            onClick={handleConnect}
-            className="w-full" 
-            style={{ backgroundColor: '#6366F1', color: '#fff' }}
-            disabled={
-              isConnecting ||
-              (
-                providerId === 'whatsapp' 
-                  ? !credentials.apiToken || !credentials.phoneNumberId
-                  : providerId === 'telegram'
-                  ? !credentials.botToken
-                  : !credentials.apiToken
-              )
-            }
-          >
-            {isConnecting ? 'Connecting...' : showQrConnect ? `Connect ${providerName} with Credentials` : `Connect ${providerName}`}
-          </Button>
-        </div>
+            <Button
+              data-onboarding="modal-authorize"
+              onClick={handleConnect}
+              className="w-full"
+              style={{ backgroundColor: '#6366F1', color: '#fff' }}
+              disabled={isConnecting || !credentials.apiToken}
+            >
+              {isConnecting ? 'Connecting...' : `Connect ${providerName}`}
+            </Button>
+          </div>
+        )}
 
         {connectError && (
           <div className="rounded-lg p-3" style={{ backgroundColor: '#EF444420', border: '1px solid #EF4444' }}>

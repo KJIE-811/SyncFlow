@@ -219,7 +219,6 @@ export function ChatIntegration() {
     | 'select-provider'
     | 'scan-qr-connect'
     | 'review-required-variables'
-    | 'choose-connection-method'
     | 'grant-permissions'
     | 'test-chat-to-task'
     | 'select-provider-to-test-area'
@@ -257,7 +256,6 @@ export function ChatIntegration() {
   const [selectedCommand, setSelectedCommand] = useState<string>(commandOptions[0]);
   const [hasLoadedPersistedChatState, setHasLoadedPersistedChatState] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(() => !state.chats.some((chat) => chat.connected));
-  const [showOnboardingPopup, setShowOnboardingPopup] = useState(true);
   const [hasUserRequestedTutorial, setHasUserRequestedTutorial] = useState(false);
   const [onboardingStepIndex, setOnboardingStepIndex] = useState(0);
   const [onboardingProviderChoice, setOnboardingProviderChoice] = useState<string | null>(null);
@@ -294,21 +292,13 @@ export function ChatIntegration() {
       ? chatProviderInfo.find((provider) => provider.id === onboardingProviderChoice)?.name || 'selected provider'
       : 'selected provider';
 
-    const requiredVariableGuidance = onboardingProviderChoice === 'whatsapp'
-      ? 'Manual fields (optional): Access Token and Phone Number ID.'
-      : onboardingProviderChoice === 'telegram'
-        ? 'Manual field (optional): Bot Token.'
-        : onboardingProviderChoice === 'messenger'
-          ? 'Required value: Page Access Token.'
-          : 'Choose a provider to view its required fields.';
+    const requiredVariableGuidance = onboardingProviderChoice === 'messenger'
+      ? 'Required value: Page Access Token.'
+      : 'Choose a provider to view its required fields.';
 
-    const requiredFieldSelector = onboardingProviderChoice === 'whatsapp'
-      ? '[data-onboarding="required-field-whatsapp"]'
-      : onboardingProviderChoice === 'telegram'
-        ? '[data-onboarding="required-field-telegram"]'
-        : onboardingProviderChoice === 'messenger'
-          ? '[data-onboarding="required-field-messenger"]'
-          : '[data-onboarding="modal-credentials"]';
+    const requiredFieldSelector = onboardingProviderChoice === 'messenger'
+      ? '[data-onboarding="required-field-messenger"]'
+      : '[data-onboarding="modal-credentials"]';
 
     const supportsQrConnect = onboardingProviderChoice === 'whatsapp' || onboardingProviderChoice === 'telegram';
 
@@ -404,38 +394,26 @@ export function ChatIntegration() {
             {
               id: 'scan-qr-connect' as const,
               action: `Scan ${providerName} QR code`,
-              instruction: `Use the QR section to connect ${providerName} by scan, or click the mock scanned button to simulate completion.`,
-              microcopy: 'Use this quick path for demo flows without filling every credential field manually.',
-              whyItMatters: 'Covers QR-based connection behavior during onboarding.',
+              instruction: `Use the QR section to connect ${providerName}. Click the mock scanned button to simulate completion.`,
+              microcopy: 'QR scan is the only connection method for this provider here.',
+              whyItMatters: 'Confirms how to connect this channel in a QR-first flow.',
               targetSelector: '[data-onboarding="qr-connect-panel"]',
               requiresModal: true,
               fallbackMessage: 'QR connect panel is not visible. Reopen the provider modal and retry.',
             },
           ]
         : []),
-      {
-        id: 'review-required-variables',
-        action: `Review ${providerName} manual credentials`,
-        instruction: `Manual credential connection is available for ${providerName}. ${requiredVariableGuidance}`,
-        microcopy: supportsQrConnect
-          ? 'You can still proceed with QR-only connection if preferred.'
-          : 'Only required fields are needed to enable Connect.',
-        whyItMatters: 'Explains the manual fallback path if QR scan is unavailable.',
-        targetSelector: requiredFieldSelector,
-        requiresModal: true,
-        fallbackMessage: 'Required fields are not visible yet. Reopen the provider modal and retry.',
-      },
-      ...(supportsQrConnect
+      ...(!supportsQrConnect
         ? [
             {
-              id: 'choose-connection-method' as const,
-              action: `Choose ${providerName} connection method`,
-              instruction: 'Choose either QR scan or manual credentials. Manual entry is optional.',
-              microcopy: 'Use the option that matches your setup preference.',
-              whyItMatters: 'Ensures users understand both supported connection paths.',
-              targetSelector: '[data-onboarding="connect-choice"]',
+              id: 'review-required-variables' as const,
+              action: `Review ${providerName} required variables`,
+              instruction: `Before authorizing, fill the required credential fields for ${providerName}. ${requiredVariableGuidance}`,
+              microcopy: 'Only required fields are needed to enable Connect.',
+              whyItMatters: 'Prevents failed authorization caused by missing credentials.',
+              targetSelector: requiredFieldSelector,
               requiresModal: true,
-              fallbackMessage: 'Connection method choices are not visible. Reopen the provider modal and retry.',
+              fallbackMessage: 'Required fields are not visible yet. Reopen the provider modal and retry.',
             },
           ]
         : []),
@@ -443,13 +421,13 @@ export function ChatIntegration() {
         id: 'grant-permissions',
         action: `Connect ${providerName}`,
         instruction: supportsQrConnect
-          ? `Connect ${providerName} using your selected method (QR scan or manual credentials).`
+          ? `Connect ${providerName} by scanning the QR code and completing the scan action.`
           : `Complete ${providerName} credential setup and connect the channel.`,
         microcopy: supportsQrConnect
-          ? 'Either method continues the tutorial after successful connection.'
+          ? 'Use the mock scanned button to continue this guided setup.'
           : 'Verify required tokens before connecting.',
         whyItMatters: 'Finalizes secure message ingestion for the selected channel.',
-        targetSelector: supportsQrConnect ? '[data-onboarding="connect-choice"]' : '[data-onboarding="modal-authorize"]',
+        targetSelector: supportsQrConnect ? '[data-onboarding="qr-mock-connect"]' : '[data-onboarding="modal-authorize"]',
         requiresModal: true,
         fallbackMessage: 'Connect action is unavailable. Reopen the provider modal and retry.',
       },
@@ -515,8 +493,6 @@ export function ChatIntegration() {
       case 'review-required-variables':
         return onboardingProviderChoice !== null;
       case 'scan-qr-connect':
-        return onboardingProviderChoice === 'whatsapp' || onboardingProviderChoice === 'telegram';
-      case 'choose-connection-method':
         return onboardingProviderChoice === 'whatsapp' || onboardingProviderChoice === 'telegram';
       case 'grant-permissions':
         return connectionStepState.permissionsGranted || activeProviderId !== null;
@@ -820,7 +796,6 @@ export function ChatIntegration() {
   const restartOnboarding = () => {
     setHasUserRequestedTutorial(true);
     setShowOnboarding(true);
-    setShowOnboardingPopup(true);
     setOnboardingStepIndex(0);
     setOnboardingProviderChoice(null);
     setConnectionStepState({ permissionsGranted: false });
@@ -1176,7 +1151,6 @@ export function ChatIntegration() {
             onClick={() => {
               if (showOnboarding) {
                 setShowOnboarding(false);
-                setShowOnboardingPopup(true);
                 setHasUserRequestedTutorial(false);
                 return;
               }
@@ -1244,24 +1218,23 @@ export function ChatIntegration() {
             />
           )}
 
-          {showOnboardingPopup && (
-            <div
-              ref={tooltipRef}
-              style={{
-                position: 'fixed',
-                top: tooltipPosition.top,
-                left: tooltipPosition.left,
-                width: 360,
-                maxWidth: 'calc(100vw - 24px)',
-                backgroundColor: '#0B1220',
-                border: '1px solid #6366F1',
-                borderRadius: 12,
-                padding: 16,
-                zIndex: 92,
-                boxShadow: '0 14px 36px rgba(0, 0, 0, 0.45)',
-                transition: 'top 260ms ease, left 260ms ease',
-              }}
-            >
+          <div
+            ref={tooltipRef}
+            style={{
+              position: 'fixed',
+              top: tooltipPosition.top,
+              left: tooltipPosition.left,
+              width: 360,
+              maxWidth: 'calc(100vw - 24px)',
+              backgroundColor: '#0B1220',
+              border: '1px solid #6366F1',
+              borderRadius: 12,
+              padding: 16,
+              zIndex: 92,
+              boxShadow: '0 14px 36px rgba(0, 0, 0, 0.45)',
+              transition: 'top 260ms ease, left 260ms ease',
+            }}
+          >
             <div className="text-xs uppercase tracking-wide" style={{ color: '#22D3EE' }}>
               Guided Setup • Step {onboardingStepIndex + 1} of {onboardingStepsFiltered.length}
             </div>
@@ -1295,16 +1268,8 @@ export function ChatIntegration() {
               <div className="flex items-center gap-2">
                 <Button
                   variant="outline"
-                  onClick={() => setShowOnboardingPopup(false)}
-                  style={{ borderColor: '#374151', color: '#000000' }}
-                >
-                  Hide Popup
-                </Button>
-                <Button
-                  variant="outline"
                   onClick={() => {
                     setShowOnboarding(false);
-                    setShowOnboardingPopup(true);
                     setHasUserRequestedTutorial(false);
                   }}
                   style={{ borderColor: '#374151', color: '#000000' }}
@@ -1322,26 +1287,7 @@ export function ChatIntegration() {
                 )}
               </div>
             </div>
-            </div>
-          )}
-
-          {!showOnboardingPopup && (
-            <Button
-              variant="outline"
-              onClick={() => setShowOnboardingPopup(true)}
-              style={{
-                position: 'fixed',
-                right: 16,
-                bottom: 16,
-                zIndex: 92,
-                borderColor: '#6366F1',
-                color: '#E5E7EB',
-                backgroundColor: '#0B1220',
-              }}
-            >
-              Show Tutorial Step
-            </Button>
-          )}
+          </div>
         </>
       )}
 
