@@ -75,7 +75,7 @@ export function ChatConnectionModal({
       }}
     >
       <DialogContent 
-        className="max-w-md"
+        className="max-w-md max-h-[90vh] overflow-y-auto"
         onInteractOutside={(event) => event.preventDefault()}
         onPointerDownOutside={(event) => event.preventDefault()}
         style={{ backgroundColor: '#1E293B', borderColor: '#6366F1' }}
@@ -170,8 +170,8 @@ export function ChatConnectionModal({
           {/* WhatsApp Configuration */}
           {providerId === 'whatsapp' && (
             <>
-              <div className="p-3 rounded-lg text-xs" style={{ backgroundColor: '#6366F120', color: '#22D3EE' }}>
-                💡 Get credentials from Meta for Developers → WhatsApp Business Platform
+              <div className="p-2 rounded-lg text-xs" style={{ backgroundColor: '#6366F120', color: '#22D3EE' }}>
+                Get credentials from Meta for Developers.
               </div>
 
               <div data-onboarding="required-field-whatsapp">
@@ -224,8 +224,8 @@ export function ChatConnectionModal({
           {/* Telegram Configuration */}
           {providerId === 'telegram' && (
             <>
-              <div className="p-3 rounded-lg text-xs" style={{ backgroundColor: '#6366F120', color: '#22D3EE' }}>
-                💡 Create a bot with @BotFather on Telegram to get your token
+              <div className="p-2 rounded-lg text-xs" style={{ backgroundColor: '#6366F120', color: '#22D3EE' }}>
+                Create a bot with @BotFather to get your token.
               </div>
 
               <div data-onboarding="required-field-telegram">
@@ -259,8 +259,8 @@ export function ChatConnectionModal({
           {/* Messenger Configuration */}
           {providerId === 'messenger' && (
             <>
-              <div className="p-3 rounded-lg text-xs" style={{ backgroundColor: '#6366F120', color: '#22D3EE' }}>
-                💡 Get credentials from Meta for Developers → Messenger Platform
+              <div className="p-2 rounded-lg text-xs" style={{ backgroundColor: '#6366F120', color: '#22D3EE' }}>
+                Get credentials from Meta for Developers.
               </div>
 
               <div data-onboarding="required-field-messenger">

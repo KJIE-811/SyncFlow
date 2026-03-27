@@ -257,6 +257,7 @@ export function ChatIntegration() {
   const [selectedCommand, setSelectedCommand] = useState<string>(commandOptions[0]);
   const [hasLoadedPersistedChatState, setHasLoadedPersistedChatState] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(() => !state.chats.some((chat) => chat.connected));
+  const [showOnboardingPopup, setShowOnboardingPopup] = useState(true);
   const [hasUserRequestedTutorial, setHasUserRequestedTutorial] = useState(false);
   const [onboardingStepIndex, setOnboardingStepIndex] = useState(0);
   const [onboardingProviderChoice, setOnboardingProviderChoice] = useState<string | null>(null);
@@ -819,6 +820,7 @@ export function ChatIntegration() {
   const restartOnboarding = () => {
     setHasUserRequestedTutorial(true);
     setShowOnboarding(true);
+    setShowOnboardingPopup(true);
     setOnboardingStepIndex(0);
     setOnboardingProviderChoice(null);
     setConnectionStepState({ permissionsGranted: false });
@@ -1174,6 +1176,7 @@ export function ChatIntegration() {
             onClick={() => {
               if (showOnboarding) {
                 setShowOnboarding(false);
+                setShowOnboardingPopup(true);
                 setHasUserRequestedTutorial(false);
                 return;
               }
@@ -1241,23 +1244,24 @@ export function ChatIntegration() {
             />
           )}
 
-          <div
-            ref={tooltipRef}
-            style={{
-              position: 'fixed',
-              top: tooltipPosition.top,
-              left: tooltipPosition.left,
-              width: 360,
-              maxWidth: 'calc(100vw - 24px)',
-              backgroundColor: '#0B1220',
-              border: '1px solid #6366F1',
-              borderRadius: 12,
-              padding: 16,
-              zIndex: 92,
-              boxShadow: '0 14px 36px rgba(0, 0, 0, 0.45)',
-              transition: 'top 260ms ease, left 260ms ease',
-            }}
-          >
+          {showOnboardingPopup && (
+            <div
+              ref={tooltipRef}
+              style={{
+                position: 'fixed',
+                top: tooltipPosition.top,
+                left: tooltipPosition.left,
+                width: 360,
+                maxWidth: 'calc(100vw - 24px)',
+                backgroundColor: '#0B1220',
+                border: '1px solid #6366F1',
+                borderRadius: 12,
+                padding: 16,
+                zIndex: 92,
+                boxShadow: '0 14px 36px rgba(0, 0, 0, 0.45)',
+                transition: 'top 260ms ease, left 260ms ease',
+              }}
+            >
             <div className="text-xs uppercase tracking-wide" style={{ color: '#22D3EE' }}>
               Guided Setup • Step {onboardingStepIndex + 1} of {onboardingStepsFiltered.length}
             </div>
@@ -1291,8 +1295,16 @@ export function ChatIntegration() {
               <div className="flex items-center gap-2">
                 <Button
                   variant="outline"
+                  onClick={() => setShowOnboardingPopup(false)}
+                  style={{ borderColor: '#374151', color: '#000000' }}
+                >
+                  Hide Popup
+                </Button>
+                <Button
+                  variant="outline"
                   onClick={() => {
                     setShowOnboarding(false);
+                    setShowOnboardingPopup(true);
                     setHasUserRequestedTutorial(false);
                   }}
                   style={{ borderColor: '#374151', color: '#000000' }}
@@ -1310,7 +1322,26 @@ export function ChatIntegration() {
                 )}
               </div>
             </div>
-          </div>
+            </div>
+          )}
+
+          {!showOnboardingPopup && (
+            <Button
+              variant="outline"
+              onClick={() => setShowOnboardingPopup(true)}
+              style={{
+                position: 'fixed',
+                right: 16,
+                bottom: 16,
+                zIndex: 92,
+                borderColor: '#6366F1',
+                color: '#E5E7EB',
+                backgroundColor: '#0B1220',
+              }}
+            >
+              Show Tutorial Step
+            </Button>
+          )}
         </>
       )}
 
