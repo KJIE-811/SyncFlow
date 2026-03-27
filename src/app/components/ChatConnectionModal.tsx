@@ -37,8 +37,33 @@ export function ChatConnectionModal({
     verifyToken: '',
   });
 
+  const showQrConnect = providerId === 'whatsapp' || providerId === 'telegram';
+  const qrConnectPayload = `syncflow-${providerId}-connect:${providerName.toLowerCase()}`;
+  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(qrConnectPayload)}`;
+
   const handleConnect = () => {
     onConnect(credentials);
+  };
+
+  const handleMockQrScanned = () => {
+    if (providerId === 'whatsapp') {
+      onConnect({
+        ...credentials,
+        apiToken: credentials.apiToken || 'mock_whatsapp_access_token',
+        phoneNumberId: credentials.phoneNumberId || '1234567890123456',
+        webhookUrl: credentials.webhookUrl || 'https://mock.syncflow.local/webhook/whatsapp',
+        verifyToken: credentials.verifyToken || 'mock_whatsapp_verify_token',
+      });
+      return;
+    }
+
+    if (providerId === 'telegram') {
+      onConnect({
+        ...credentials,
+        botToken: credentials.botToken || 'mock_telegram_bot_token',
+        webhookUrl: credentials.webhookUrl || 'https://mock.syncflow.local/webhook/telegram',
+      });
+    }
   };
 
   return (
@@ -73,6 +98,47 @@ export function ChatConnectionModal({
             {(requiredFieldGuidance[providerId] || []).join(' and ')}
           </p>
         </div>
+
+        {showQrConnect && (
+          <div className="rounded-lg p-4 space-y-3" style={{ backgroundColor: '#0F172A', border: '1px solid #374151' }}>
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <p className="text-sm font-semibold" style={{ color: '#E5E7EB' }}>Scan QR to Connect</p>
+                <p className="text-xs" style={{ color: '#9CA3AF' }}>
+                  Open {providerName} on your phone and scan this code to link your channel.
+                </p>
+              </div>
+              <div className="rounded-md px-2 py-1 text-xs font-medium" style={{ backgroundColor: '#22D3EE20', color: '#22D3EE' }}>
+                Scan Option
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-center gap-4">
+              <img
+                src={qrCodeUrl}
+                alt={`${providerName} connection QR code`}
+                className="h-40 w-40 rounded-md border bg-white p-2"
+                style={{ borderColor: '#374151' }}
+              />
+
+              <div className="flex-1 space-y-2">
+                <p className="text-xs" style={{ color: '#9CA3AF' }}>
+                  This is a mock QR connection flow for demo and testing.
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  onClick={handleMockQrScanned}
+                  disabled={isConnecting}
+                  style={{ borderColor: '#22D3EE', color: '#22D3EE' }}
+                >
+                  Mock: Already Scanned QR
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="space-y-4" data-onboarding="modal-credentials">
           {/* WhatsApp Configuration */}
