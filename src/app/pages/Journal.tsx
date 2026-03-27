@@ -529,10 +529,6 @@ export function Journal() {
           >
             {showOnboarding ? 'Hide Tutorial' : 'Revisit Tutorial'}
           </Button>
-          <Button variant="outline" style={{ borderColor: '#374151', color: '#E5E7EB' }}>
-            <Calendar className="w-4 h-4 mr-2" />
-            Select Date
-          </Button>
         </div>
       </div>
 
@@ -639,10 +635,6 @@ export function Journal() {
                 <Brain className="w-5 h-5" style={{ color: '#6366F1' }} />
                 <CardTitle style={{ color: '#E5E7EB' }}>AI Communication Summary</CardTitle>
               </div>
-              <Button variant="outline" size="sm" onClick={refreshSummaries} style={{ borderColor: '#374151', color: '#E5E7EB' }}>
-                <TrendingUp className="w-4 h-4 mr-2" />
-                Refresh
-              </Button>
             </div>
             <CardDescription style={{ color: '#9CA3AF' }}>
               Grouped chat activity by project and contact
