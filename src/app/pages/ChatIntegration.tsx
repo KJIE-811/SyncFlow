@@ -218,6 +218,7 @@ export function ChatIntegration() {
   type OnboardingStepId =
     | 'select-provider'
     | 'review-required-variables'
+    | 'scan-qr-connect'
     | 'grant-permissions'
     | 'test-chat-to-task'
     | 'select-provider-to-test-area'
@@ -306,6 +307,8 @@ export function ChatIntegration() {
         : onboardingProviderChoice === 'messenger'
           ? '[data-onboarding="required-field-messenger"]'
           : '[data-onboarding="modal-credentials"]';
+
+    const supportsQrConnect = onboardingProviderChoice === 'whatsapp' || onboardingProviderChoice === 'telegram';
 
     const postConnectionSteps: OnboardingStep[] = [
       {
@@ -404,6 +407,20 @@ export function ChatIntegration() {
         requiresModal: true,
         fallbackMessage: 'Required fields are not visible yet. Reopen the provider modal and retry.',
       },
+      ...(supportsQrConnect
+        ? [
+            {
+              id: 'scan-qr-connect' as const,
+              action: `Scan ${providerName} QR code`,
+              instruction: `Use the QR section to connect ${providerName} by scan, or click the mock scanned button to simulate completion.`,
+              microcopy: 'Use this quick path for demo flows without filling every credential field manually.',
+              whyItMatters: 'Covers QR-based connection behavior during onboarding.',
+              targetSelector: '[data-onboarding="qr-connect-panel"]',
+              requiresModal: true,
+              fallbackMessage: 'QR connect panel is not visible. Reopen the provider modal and retry.',
+            },
+          ]
+        : []),
       {
         id: 'grant-permissions',
         action: `Authorize ${providerName}`,
@@ -475,6 +492,8 @@ export function ChatIntegration() {
         return onboardingProviderChoice !== null;
       case 'review-required-variables':
         return onboardingProviderChoice !== null;
+      case 'scan-qr-connect':
+        return onboardingProviderChoice === 'whatsapp' || onboardingProviderChoice === 'telegram';
       case 'grant-permissions':
         return connectionStepState.permissionsGranted || activeProviderId !== null;
       default:

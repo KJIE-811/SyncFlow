@@ -100,7 +100,11 @@ export function ChatConnectionModal({
         </div>
 
         {showQrConnect && (
-          <div className="rounded-lg p-4 space-y-3" style={{ backgroundColor: '#0F172A', border: '1px solid #374151' }}>
+          <div
+            data-onboarding="qr-connect-panel"
+            className="rounded-lg p-4 space-y-3"
+            style={{ backgroundColor: '#0F172A', border: '1px solid #374151' }}
+          >
             <div className="flex items-center justify-between gap-2">
               <div>
                 <p className="text-sm font-semibold" style={{ color: '#E5E7EB' }}>Scan QR to Connect</p>
@@ -126,6 +130,7 @@ export function ChatConnectionModal({
                   This is a mock QR connection flow for demo and testing.
                 </p>
                 <Button
+                  data-onboarding="qr-mock-connect"
                   type="button"
                   variant="outline"
                   className="w-full"
